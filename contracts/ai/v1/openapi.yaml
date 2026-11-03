@@ -1,0 +1,243 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SupportFlow AI Classification Contract",
+    "version": "1.0.0",
+    "description": "Design contract only. Backend owns authorization, business decisions, priority and confidence bands. No live service is connected."
+  },
+  "paths": {
+    "/v1/ticket-classifications": {
+      "post": {
+        "operationId": "classifyTicket",
+        "security": [
+          {
+            "serviceBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassificationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suggestions only; caller validates correlation and semantics.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid snapshot"
+          },
+          "401": {
+            "description": "Invalid service credential"
+          },
+          "403": {
+            "description": "Service scope denied"
+          },
+          "429": {
+            "description": "Rate limit"
+          },
+          "503": {
+            "description": "Provider unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "serviceBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "ClassificationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "ticketId",
+          "ticketRevision",
+          "inputHash",
+          "title",
+          "description"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ticketId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ticketRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "inputHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ClassificationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "ticketId",
+          "ticketRevision",
+          "inputHash",
+          "suggestions"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ticketId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ticketRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "inputHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "suggestions": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "field",
+                    "value",
+                    "score"
+                  ],
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "const": "category"
+                    },
+                    "value": {
+                      "type": "string",
+                      "enum": [
+                        "ACC",
+                        "NET",
+                        "VPN",
+                        "MAIL",
+                        "SW",
+                        "HW",
+                        "PRINT",
+                        "ACCESS",
+                        "EQUIP",
+                        "SEC",
+                        "OTHER"
+                      ]
+                    },
+                    "score": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "field",
+                    "value",
+                    "score"
+                  ],
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "const": "impact"
+                    },
+                    "value": {
+                      "type": "string",
+                      "enum": [
+                        "Low",
+                        "Medium",
+                        "High"
+                      ]
+                    },
+                    "score": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "field",
+                    "value",
+                    "score"
+                  ],
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "const": "urgency"
+                    },
+                    "value": {
+                      "type": "string",
+                      "enum": [
+                        "Low",
+                        "Medium",
+                        "High"
+                      ]
+                    },
+                    "score": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

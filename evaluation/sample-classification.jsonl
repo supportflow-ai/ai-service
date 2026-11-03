@@ -1,0 +1,11 @@
+{"id": "s01", "title": "VPN không kết nối", "description": "Cisco AnyConnect báo lỗi khi remote access", "goldCategory": "VPN"}
+{"id": "s02", "title": "Quên mật khẩu", "description": "Không đăng nhập được tài khoản", "goldCategory": "ACC"}
+{"id": "s03", "title": "Mất mạng", "description": "Wifi và internet không hoạt động", "goldCategory": "NET"}
+{"id": "s04", "title": "Outlook lỗi", "description": "Không gửi được email", "goldCategory": "MAIL"}
+{"id": "s05", "title": "Cài phần mềm", "description": "Cần cài đặt phần mềm mới", "goldCategory": "SW"}
+{"id": "s06", "title": "Ổ cứng lỗi", "description": "SSD máy tính không nhận", "goldCategory": "HW"}
+{"id": "s07", "title": "Máy in lỗi", "description": "Printer không in được", "goldCategory": "PRINT"}
+{"id": "s08", "title": "Không có quyền thư mục", "description": "Access denied vào shared folder", "goldCategory": "ACCESS"}
+{"id": "s09", "title": "Cấp laptop", "description": "Nhân viên mới cần cấp thiết bị", "goldCategory": "EQUIP"}
+{"id": "s10", "title": "Nghi phishing", "description": "Người dùng nhận email phishing và đã bấm link", "goldCategory": "SEC"}
+{"id": "s11", "title": "Yêu cầu khác", "description": "Nội dung không thuộc các nhóm trên", "goldCategory": "OTHER"}

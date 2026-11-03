@@ -1,0 +1,112 @@
+[
+  {
+    "kind": "request",
+    "valid": true,
+    "payload": {
+      "requestId": "00000000-0000-0000-0000-000000000001",
+      "ticketId": "00000000-0000-0000-0000-000000000002",
+      "ticketRevision": 1,
+      "inputHash": "e737e044b7ef976a6f2f2e97f1f2aaee633a2205cc16d051316bf2139d5dc02c",
+      "title": "VPN issue",
+      "description": "Cannot connect"
+    }
+  },
+  {
+    "kind": "response",
+    "valid": true,
+    "payload": {
+      "requestId": "00000000-0000-0000-0000-000000000001",
+      "ticketId": "00000000-0000-0000-0000-000000000002",
+      "ticketRevision": 1,
+      "inputHash": "e737e044b7ef976a6f2f2e97f1f2aaee633a2205cc16d051316bf2139d5dc02c",
+      "suggestions": [
+        {
+          "field": "category",
+          "value": "VPN",
+          "score": null
+        }
+      ]
+    }
+  },
+  {
+    "kind": "response",
+    "name": "numeric-enum",
+    "valid": false,
+    "payload": {
+      "requestId": "00000000-0000-0000-0000-000000000001",
+      "ticketId": "00000000-0000-0000-0000-000000000002",
+      "ticketRevision": 1,
+      "inputHash": "e737e044b7ef976a6f2f2e97f1f2aaee633a2205cc16d051316bf2139d5dc02c",
+      "suggestions": [
+        {
+          "field": "category",
+          "value": "1",
+          "score": null
+        }
+      ]
+    }
+  },
+  {
+    "kind": "response",
+    "name": "unknown-category",
+    "valid": false,
+    "payload": {
+      "requestId": "00000000-0000-0000-0000-000000000001",
+      "ticketId": "00000000-0000-0000-0000-000000000002",
+      "ticketRevision": 1,
+      "inputHash": "e737e044b7ef976a6f2f2e97f1f2aaee633a2205cc16d051316bf2139d5dc02c",
+      "suggestions": [
+        {
+          "field": "category",
+          "value": "UNKNOWN",
+          "score": null
+        }
+      ]
+    }
+  },
+  {
+    "kind": "response",
+    "name": "privileged-action",
+    "valid": false,
+    "payload": {
+      "requestId": "00000000-0000-0000-0000-000000000001",
+      "ticketId": "00000000-0000-0000-0000-000000000002",
+      "ticketRevision": 1,
+      "inputHash": "e737e044b7ef976a6f2f2e97f1f2aaee633a2205cc16d051316bf2139d5dc02c",
+      "suggestions": [
+        {
+          "field": "category",
+          "value": "VPN",
+          "score": null
+        }
+      ],
+      "actions": [
+        "close"
+      ]
+    }
+  },
+  {
+    "kind": "response",
+    "name": "invalid-score",
+    "valid": false,
+    "payload": {
+      "requestId": "00000000-0000-0000-0000-000000000001",
+      "ticketId": "00000000-0000-0000-0000-000000000002",
+      "ticketRevision": 1,
+      "inputHash": "e737e044b7ef976a6f2f2e97f1f2aaee633a2205cc16d051316bf2139d5dc02c",
+      "suggestions": [
+        {
+          "field": "category",
+          "value": "VPN",
+          "score": 1.5
+        }
+      ]
+    }
+  },
+  {
+    "kind": "response",
+    "name": "missing-fields",
+    "valid": false,
+    "payload": {}
+  }
+]
