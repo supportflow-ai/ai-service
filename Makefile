@@ -19,4 +19,4 @@ baseline:
 	python -m evaluation.run_classification
 
 docker-build:
-	docker build -t supportflow-ai-service:local .
+	docker build -t ghcr.io/supportflow-ai/ai-service:local .
