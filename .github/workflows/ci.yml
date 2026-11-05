@@ -61,10 +61,40 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: quality
+    env:
+      AI_IMAGE: ghcr.io/supportflow-ai/ai-service:sha-${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
-      - name: Build non-root runtime image
-        run: docker build -t supportflow-ai-service:${{ github.sha }} .
+      - name: Đóng gói image runtime
+        run: docker build -t "$AI_IMAGE" .
+      - name: Xác minh HTTP trong container
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SUPPORTFLOW_AI_SERVICE_TOKEN
+          SUPPORTFLOW_AI_SERVICE_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          container_id=
+          cleanup() {
+            if [[ -n "$container_id" ]]; then
+              docker rm -f "$container_id" >/dev/null
+            fi
+          }
+          trap cleanup EXIT
+
+          echo "Commit: $(git rev-parse HEAD)"
+          echo "Image: $AI_IMAGE"
+          docker image inspect --format 'Image ID: {{.Id}}' "$AI_IMAGE"
+          for provider in rule noop; do
+            container_id="$(docker run -d --network none \
+              -e SUPPORTFLOW_AI_ENVIRONMENT=production \
+              -e SUPPORTFLOW_AI_SERVICE_TOKEN \
+              -e SUPPORTFLOW_AI_CLASSIFIER_PROVIDER="$provider" \
+              -e SUPPORTFLOW_AI_MAX_REQUEST_BYTES=65536 \
+              "$AI_IMAGE")"
+            docker exec -i "$container_id" python - < scripts/smoke_http.py
+            cleanup
+            container_id=
+          done
 
   publish:
     name: Phát hành image bất biến
