@@ -18,9 +18,14 @@ class LimitRequestBodyMiddleware:
         self.max_bytes = max_bytes
 
     async def __call__(self, scope: dict[str, Any], receive: Callable, send: Callable) -> None:
-        if scope["type"] != "http" or scope.get("path") != "/v1/ticket-classifications":
+        limits = {
+            "/v1/ticket-classifications": self.max_bytes,
+            "/v1/knowledge-indexes:prepare": 1_048_576,
+        }
+        if scope["type"] != "http" or scope.get("path") not in limits:
             await self.app(scope, receive, send)
             return
+        max_bytes = limits[scope["path"]]
 
         async def reject() -> None:
             response = JSONResponse(
@@ -31,7 +36,7 @@ class LimitRequestBodyMiddleware:
         for name, value in scope.get("headers", []):
             if name.lower() == b"content-length":
                 try:
-                    if int(value) > self.max_bytes:
+                    if int(value) > max_bytes:
                         await reject()
                         return
                 except ValueError:
@@ -45,7 +50,7 @@ class LimitRequestBodyMiddleware:
             if event["type"] != "http.request":
                 continue
             part = event.get("body", b"")
-            if len(content) + len(part) > self.max_bytes:
+            if len(content) + len(part) > max_bytes:
                 await reject()
                 return
             content.extend(part)
