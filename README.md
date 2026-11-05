@@ -10,6 +10,8 @@ Docker cài runtime theo phiên bản ghim trong `requirements-runtime.lock`. De
 thử nằm trong `pyproject.toml`. Production yêu cầu token dịch vụ riêng. Schema v1 kiểm tra
 chặt kiểu của `ticketRevision` ở cả request và response.
 
+Phân loại và duyệt gợi ý AI thuộc giai đoạn sau của dự án. Xem [đối chiếu tích hợp Backend–AI](docs/backend-alignment.md) và [tài liệu chung của dự án](https://github.com/supportflow-ai/supportflow-ai-infra/blob/main/README.md).
+
 ## Trách nhiệm
 
 AI service:

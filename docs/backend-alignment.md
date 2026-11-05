@@ -1,5 +1,19 @@
 # Đối chiếu backend
 
+## Tích hợp S2S tại mốc ngày 05/11/2026
+
+Đối chiếu [AI Service `main@7c09102`](https://github.com/supportflow-ai/ai-service/commit/7c0910298c35150cb28ed2a71605b8c4e03a3938) và [Backend `main@bf38ef9`](https://github.com/supportflow-ai/ai-it-service-desk/commit/bf38ef903f46f6ea21f80da44c11d437391a9efb). Hai bản OpenAPI phân loại v1 khớp từng byte. Backend công bố hợp đồng, AI Service ghim bản sao và checksum. [OpenAPI v1](../contracts/ai/v1/openapi.yaml) · [Bản ghim](../contract.lock.json)
+
+| Thành phần | Trách nhiệm |
+| --- | --- |
+| Backend | Xây dựng snapshot ticket, tính `inputHash`, gọi qua adapter HTTP khi có luồng nghiệp vụ và đối chiếu phản hồi. Sở hữu quyền, dữ liệu và quyết định thay đổi phiếu |
+| AI Service | Nhận `POST /v1/ticket-classifications` qua Bearer riêng giữa các dịch vụ. Kiểm tra định dạng `inputHash`, trả nguyên giá trị cùng các trường định danh và cung cấp gợi ý theo hợp đồng v1 |
+| Frontend và hạ tầng | Web giao tiếp với Backend. Hạ tầng giữ AI Service trong mạng nội bộ và quản lý kiểm tra sức khỏe khi triển khai |
+
+Hai bộ cung cấp hiện có là `rule` và `noop`. Khi dùng `noop`, `/health/ready` trả `503`. Adapter Backend và endpoint phân loại đã có trong mã. Luồng gọi từ Ticketing và lưu quyết định duyệt gợi ý vẫn cần tích hợp đầu cuối. Embedding và RAG cần hợp đồng và quyết định phạm vi riêng. [Điểm vào phân loại](../src/supportflow_ai/api/routes/classification.py) · [Kiểm tra sức khỏe](../src/supportflow_ai/api/routes/health.py)
+
+## Mốc xây dựng ban đầu
+
 Code base này được dựng sau khi đọc backend `supportflow-ai/ai-it-service-desk`
 nhánh `dev` tại commit:
 
