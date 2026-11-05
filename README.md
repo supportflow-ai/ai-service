@@ -1,21 +1,14 @@
 # SupportFlow AI Service
 
-## Cập nhật triển khai 03/11/2026
+## Hiện trạng
 
-Code ứng dụng đã có trong working tree `main`, chưa commit/push. Bộ phân loại `rule` là baseline theo luật. Chưa có model học máy được huấn luyện, Outbox backend hoặc luồng Agent duyệt đầu cuối.
+AI-service cung cấp API phân loại ticket theo OpenAPI v1 của **SupportFlow AI IT Service
+Desk**. Provider `rule` phân loại theo từ khóa, còn `noop` trả readiness 503. Dự án chưa
+tích hợp model học máy hoặc dịch vụ model bên ngoài.
 
-`requirements-runtime.lock` ghim các phiên bản runtime đã quan sát trong môi trường kiểm tra; Docker cài từ các phiên bản đó, dùng Uvicorn HTTP cơ bản. Đây là khóa phiên bản, chưa có hash artifact; việc tải đúng các package trên Linux và build image còn chờ CI có mạng/Docker. Dependency kiểm thử hiện vẫn khai báo trong `pyproject.toml`.
-
-Runtime dùng `SUPPORTFLOW_AI_ENVIRONMENT`, `SUPPORTFLOW_AI_SERVICE_TOKEN`, `SUPPORTFLOW_AI_CLASSIFIER_PROVIDER`. Production bắt buộc token; `rule` sẵn sàng còn `noop` trả readiness 503. `ticketRevision` ở request/response là integer nghiêm ngặt; bool, chuỗi, float và số âm bị từ chối. Contract v1 giữ nguyên, không thêm trường modelVersion.
-
-Kiểm tra trong venv: cài `-r requirements-runtime.lock -e ".[dev]"`, chạy Ruff, `scripts/validate_ai_contract.py`, pytest và evaluation theo CI. Máy hiện tại thiếu openapi-spec-validator, DNS tới PyPI bị chặn và vòng lặp asyncio bị kẹt khi Windows tạo socketpair. Chỉ các kiểm thử đồng bộ và lint/compile đã được kiểm chứng local; không đánh dấu HTTP/async/evaluation đạt.
-
-CI có build image không chạy bằng root và healthcheck readiness. Job GHCR chỉ chạy khi dispatch với `publish_images=true` trên main/dev sau quality gates; ghi digest, provenance và SBOM. Chưa phát hành image từ lần sửa này.
-
-Code base cho AI inference service của **SupportFlow AI IT Service Desk**.
-
-Base này được thiết kế từ contract và code backend hiện tại, không biến AI thành một backend
-nghiệp vụ thứ hai.
+Docker cài runtime theo phiên bản ghim trong `requirements-runtime.lock`. Dependency kiểm
+thử nằm trong `pyproject.toml`. Production yêu cầu token dịch vụ riêng. Schema v1 kiểm tra
+chặt kiểu của `ticketRevision` ở cả request và response.
 
 ## Trách nhiệm
 
@@ -72,7 +65,7 @@ python -m venv .venv
 # Linux/macOS:
 source .venv/bin/activate
 
-python -m pip install -e ".[dev]"
+python -m pip install -r requirements-runtime.lock -e ".[dev]"
 cp .env.example .env
 # Sinh token riêng, sao chép kết quả vào SUPPORTFLOW_AI_SERVICE_TOKEN trong .env:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -121,9 +114,37 @@ ruff check .
 pytest
 python scripts/validate_ai_contract.py
 python -m evaluation.run_classification
+python -m compileall -q src evaluation scripts
 ```
 
 `evaluation/sample-classification.jsonl` chỉ là smoke data, không phải gold set.
+
+### Kiểm tra image và HTTP
+
+`make docker-build` tạo image local `ghcr.io/supportflow-ai/ai-service:local`. CI dùng cùng
+tên image với quy trình phát hành của infra và gắn tag `sha-<commit>`. Bước
+**Xác minh HTTP trong container** chạy image trên Linux, gọi qua `127.0.0.1:8000` từ
+trong container và ghi kết quả từng ca cùng SHA và image ID trong log.
+
+| Ca kiểm tra | Kỳ vọng |
+|---|---|
+| Liveness của `rule` và `noop` | HTTP 200 |
+| Readiness của `rule` | HTTP 200 |
+| Snapshot VPN và SEC | HTTP 200, đúng danh mục và đủ `requestId`, `ticketId`, `ticketRevision`, `inputHash` |
+| Bearer sai | HTTP 401 |
+| Revision kiểu boolean | HTTP 400 |
+| Payload vượt giới hạn | HTTP 413 |
+| Readiness của `noop` | HTTP 503 |
+
+Để chạy lại, dùng các lệnh trong bước CI trên và đặt `AI_IMAGE` thành tag local. Smoke test
+dùng token tạm, payload giả và mạng `none` chỉ có loopback. Log không ghi token hoặc nội
+dung ticket. Job phát hành GHCR cần dispatch riêng với `publish_images=true` trên
+`main` hoặc `dev`, sau khi các bước kiểm tra đạt.
+
+Workflow [41584086425](https://github.com/supportflow-ai/ai-service/actions/runs/41584086425)
+ghi nhận lỗi import `evaluation.metrics` khi thu thập test tại `134c9d2`. Pytest được cấu
+hình thêm gốc dự án để import package evaluation khi chạy bằng lệnh `pytest`. Dùng log
+của đúng SHA ứng viên để xác nhận kết quả kiểm thử và build.
 
 ## Provider mới
 
