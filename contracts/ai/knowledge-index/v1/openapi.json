@@ -1,0 +1,319 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SupportFlow Knowledge Index",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/knowledge-indexes:prepare": {
+      "post": {
+        "operationId": "prepareKnowledgeIndex",
+        "security": [
+          {
+            "ServiceBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Prepared, not persisted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid snapshot or profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid S2S credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload exceeds 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable or invalid provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "IndexRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "articleId": {
+            "format": "uuid",
+            "title": "Articleid",
+            "type": "string"
+          },
+          "articleVersionId": {
+            "format": "uuid",
+            "title": "Articleversionid",
+            "type": "string"
+          },
+          "versionNumber": {
+            "minimum": 1,
+            "title": "Versionnumber",
+            "type": "integer"
+          },
+          "sourceHash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcehash",
+            "type": "string"
+          },
+          "profileId": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Profileid",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 131072,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "articleId",
+          "articleVersionId",
+          "versionNumber",
+          "sourceHash",
+          "profileId",
+          "title",
+          "content"
+        ],
+        "title": "IndexRequest",
+        "type": "object"
+      },
+      "IndexResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "articleId",
+          "articleVersionId",
+          "versionNumber",
+          "sourceHash",
+          "profileId",
+          "profileHash",
+          "profile",
+          "normalizedContentHash",
+          "chunks"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "articleVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sourceHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "profileId": {
+            "const": "kb-e5-small-384-v1"
+          },
+          "profileHash": {
+            "const": "0060fca67682d9d04a273d74df430840b6b367bcc9505bc5cade76268df77bcb"
+          },
+          "profile": {
+            "type": "object",
+            "const": {
+              "id": "kb-e5-small-384-v1",
+              "provider": "sentence-transformers-cpu",
+              "model": "intfloat/multilingual-e5-small",
+              "model_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+              "dimension": 384,
+              "tokenizer_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+              "chunker_version": "markdown-blocks-v1",
+              "normalization": "lf-v1",
+              "chunk_tokens": 384,
+              "overlap_tokens": 32,
+              "title_tokens": 48,
+              "max_input_tokens": 480,
+              "input_template": "passage: {title}\n\n{chunk}"
+            }
+          },
+          "normalizedContentHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "chunks": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeChunk"
+            }
+          }
+        }
+      },
+      "KnowledgeChunk": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chunkId",
+          "index",
+          "text",
+          "textHash",
+          "startChar",
+          "endChar",
+          "startLine",
+          "endLine",
+          "headingPath",
+          "tokenCount",
+          "embedding"
+        ],
+        "properties": {
+          "chunkId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "textHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "startChar": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "endChar": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "startLine": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "endLine": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "headingPath": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "type": "string"
+            }
+          },
+          "tokenCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 480
+          },
+          "embedding": {
+            "type": "array",
+            "minItems": 384,
+            "maxItems": 384,
+            "items": {
+              "type": "number",
+              "minimum": -1.00001,
+              "maximum": 1.00001
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "detail"
+        ],
+        "properties": {
+          "detail": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ServiceBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

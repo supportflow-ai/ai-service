@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "canonicalRepository": "supportflow-ai/ai-it-service-desk",
+  "profileId": "kb-e5-small-384-v1",
+  "profileHash": "0060fca67682d9d04a273d74df430840b6b367bcc9505bc5cade76268df77bcb",
+  "files": {
+    "openapi.json": "3a85999746bea76f16e0ffdbf46c543e4b904308e46571a1d932b1aab547e40b",
+    "fixtures.json": "e934b1b03cbe5480225396f10188075db7fe3ae4ed4743f01d674f14b8ae7d1e",
+    "profile.json": "27ad2eac6dceab47ba07680d385377b404453e446389850310bd86f7c2de5edd"
+  }
+}

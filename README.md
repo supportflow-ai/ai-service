@@ -1,5 +1,13 @@
 # SupportFlow AI Service
 
+## Pipeline Knowledge Published — 05/11/2026
+
+Đã bổ sung chunking Markdown, metadata nguồn/version, embedding CPU E5 384 chiều và contract S2S indexing cho TC-346–TC-350. Xem [đặc tả sáu phần và hướng dẫn kiểm chứng](docs/knowledge-index-pipeline.md). Core giữ job/worker/pgvector; AI xử lý snapshot được gửi tới. Chưa triển khai semantic query/RAG.
+
+Những lựa chọn profile và giới hạn trong đặc tả là thiết kế triển khai đề xuất để nhóm review. Thay đổi đang ở local; không dùng các mốc lịch sử bên dưới để xác nhận bản phát hành hiện tại.
+
+Xem [kết quả kiểm chứng và bước còn thiếu](docs/knowledge-index-verification.md): test chức năng đã qua; build lại image AI cuối và smoke toàn tuyến model thật còn bị chặn bởi môi trường Docker.
+
 ## Cập nhật triển khai 03/11/2026
 
 Code ứng dụng đã có trong working tree `main`, chưa commit/push. Bộ phân loại `rule` là baseline theo luật. Chưa có model học máy được huấn luyện, Outbox backend hoặc luồng Agent duyệt đầu cuối.
