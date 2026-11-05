@@ -95,7 +95,7 @@ jobs:
             cleanup
             container_id=
           done
-                - name: Kiểm chứng embedding thật qua HTTP
+      - name: Kiểm chứng embedding thật qua HTTP
         env:
           SUPPORTFLOW_AI_SERVICE_TOKEN: synthetic-ci-knowledge-token-at-least-32-characters
         run: |
