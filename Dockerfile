@@ -26,3 +26,18 @@ EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)" || exit 1
 CMD ["uvicorn", "supportflow_ai.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+
+FROM runtime AS embeddings
+USER root
+COPY requirements-embeddings.txt /opt/requirements-embeddings.txt
+RUN python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.9.0 \
+    && python -m pip install -r /opt/requirements-embeddings.txt
+COPY scripts/download_embedding_model.py /opt/download_embedding_model.py
+RUN python /opt/download_embedding_model.py --cache-dir /opt/models \
+    && chmod -R a+rX /opt/models
+ENV SUPPORTFLOW_AI_EMBEDDING_CACHE_DIR=/opt/models \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+USER app
+HEALTHCHECK --interval=15s --timeout=3s --start-period=120s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)" || exit 1

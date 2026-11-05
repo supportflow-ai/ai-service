@@ -65,6 +65,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build non-root runtime image
         run: docker build -t supportflow-ai-service:${{ github.sha }} .
+      - name: Kiểm chứng embedding thật qua HTTP
+        env:
+          SUPPORTFLOW_AI_SERVICE_TOKEN: synthetic-ci-knowledge-token-at-least-32-characters
+        run: |
+          docker run -d --name knowledge-smoke -p 127.0.0.1:8000:8000 \
+            -e SUPPORTFLOW_AI_SERVICE_TOKEN \
+            -e SUPPORTFLOW_AI_CLASSIFIER_PROVIDER=rule \
+            -e SUPPORTFLOW_AI_EMBEDDING_PROVIDER=local-e5 \
+            supportflow-ai-service:${{ github.sha }}
+          python scripts/smoke_knowledge_index.py
+      - name: Dọn container kiểm chứng
+        if: always()
+        run: docker rm -f knowledge-smoke || true
 
   publish:
     name: Phát hành image bất biến
