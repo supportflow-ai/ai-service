@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     auth_enabled: bool = True
     service_token: SecretStr | None = None
     classifier_provider: Literal["noop", "rule"] = "noop"
+    embedding_provider: Literal["noop", "local-e5"] = "noop"
+    embedding_cache_dir: str | None = None
     log_level: str = "INFO"
     max_request_bytes: int = 65_536
 

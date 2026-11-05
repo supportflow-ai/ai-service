@@ -18,3 +18,13 @@ async def ready(request: Request):
             content={"status": "degraded", "classifier": provider},
         )
     return {"status": "ready", "classifier": provider}
+
+
+@router.get("/health/embedding")
+async def embedding_ready(request: Request):
+    preparer = request.app.state.prepare_knowledge_index
+    available = preparer is not None and preparer.ready
+    return JSONResponse(
+        status_code=200 if available else 503,
+        content={"status": "ready" if available else "degraded"},
+    )
