@@ -47,3 +47,8 @@ Backend hiện chưa chốt:
 - transport metadata cho provider/model version trong classification response.
 
 Vì vậy base code không tự phát minh các field contract mới.
+
+## Cập nhật 2026-11-13
+
+- Chủ dự án chốt: backend tiêu thụ `POST /v1/knowledge-indexes:prepare`; kế hoạch phía backend ở `docs/architecture/ai-integration-plan.md` của kho `ai-it-service-desk`. Hợp đồng chỉ mục tri thức sẽ chuyển về backend làm bản chuẩn; ai-service giữ bản sao cùng byte.
+- Phân loại thật cho MVP chạy bằng mô hình học máy cục bộ, không gọi API bên ngoài: [ml-classifier-plan.md](ml-classifier-plan.md).
