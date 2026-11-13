@@ -4,7 +4,7 @@
 
 Đã bổ sung chunking Markdown, metadata nguồn/version, embedding CPU E5 384 chiều và contract S2S indexing cho TC-346–TC-350. Xem [đặc tả sáu phần và hướng dẫn kiểm chứng](docs/knowledge-index-pipeline.md). Core giữ job/worker/pgvector; AI xử lý snapshot được gửi tới. Chưa triển khai semantic query/RAG.
 
-Những lựa chọn profile và giới hạn trong đặc tả là thiết kế triển khai đề xuất để nhóm review. Thay đổi đang ở local; không dùng các mốc lịch sử bên dưới để xác nhận bản phát hành hiện tại.
+Những lựa chọn profile và giới hạn trong đặc tả là thiết kế triển khai đề xuất để nhóm review. Pipeline này đã vào `main` (PR #7). Phía backend (`ai-it-service-desk`, `dev@07ce07a`) chưa có hợp đồng, migration hay mã tiêu thụ endpoint này, nên luồng đầu cuối chưa chạy. Không dùng các mốc lịch sử bên dưới để xác nhận bản phát hành hiện tại.
 
 Xem [kết quả kiểm chứng và bước còn thiếu](docs/knowledge-index-verification.md): test chức năng đã qua; build lại image AI cuối và smoke toàn tuyến model thật còn bị chặn bởi môi trường Docker.
 
@@ -12,14 +12,15 @@ Xem [kết quả kiểm chứng và bước còn thiếu](docs/knowledge-index-v
 ## Hiện trạng
 
 AI-service cung cấp API phân loại ticket theo OpenAPI v1 của **SupportFlow AI IT Service
-Desk**. Provider `rule` phân loại theo từ khóa, còn `noop` trả readiness 503. Dự án chưa
-tích hợp model học máy hoặc dịch vụ model bên ngoài.
+Desk**. Provider `rule` phân loại theo từ khóa, còn `noop` trả readiness 503. Phân loại
+chưa tích hợp model học máy hoặc dịch vụ model bên ngoài. Embedding cho Knowledge chạy
+model E5 cục bộ trên CPU (stage `embeddings` của Dockerfile).
 
 Docker cài runtime theo phiên bản ghim trong `requirements-runtime.lock`. Dependency kiểm
 thử nằm trong `pyproject.toml`. Production yêu cầu token dịch vụ riêng. Schema v1 kiểm tra
 chặt kiểu của `ticketRevision` ở cả request và response.
 
-Phân loại và duyệt gợi ý AI thuộc giai đoạn sau của dự án. Xem [đối chiếu tích hợp Backend–AI](docs/backend-alignment.md) và [tài liệu chung của dự án](https://github.com/supportflow-ai/supportflow-ai-infra/blob/main/README.md).
+Phân loại và duyệt gợi ý AI thuộc giai đoạn sau của dự án. Xem [đối chiếu tích hợp Backend–AI](docs/backend-alignment.md) và [tài liệu chung của dự án](https://github.com/supportflow-ai/supportflow-ai-infra/blob/main/README.md). Quy trình làm việc chung ở [cẩm nang](docs/team-handbook.md); quy tắc riêng của kho ở [AGENTS.md](AGENTS.md).
 
 ## Trách nhiệm
 
@@ -61,9 +62,9 @@ Xem `docs/architecture.md`.
 | Service Bearer auth | Có |
 | NoOp provider / controlled 503 | Có |
 | Rule-based baseline | Có |
-| Real ML/Transformer model | Chưa chọn |
-| Embedding port/use case | Scaffold |
-| External embedding endpoint | Chưa expose vì backend chưa có canonical contract |
+| Model phân loại học máy | Chưa chọn (dùng rule baseline) |
+| Embedding CPU E5 và chuẩn bị chỉ mục Knowledge | Có (`POST /v1/knowledge-indexes:prepare`, `GET /health/embedding`); backend chưa tiêu thụ |
+| Tìm kiếm ngữ nghĩa, truy vấn embedding | Chưa có |
 | RAG | Chưa đưa vào MVP |
 | Evaluation baseline | Có |
 
@@ -93,8 +94,10 @@ Endpoint:
 
 ```text
 POST /v1/ticket-classifications
+POST /v1/knowledge-indexes:prepare   (S2S, chuẩn bị chỉ mục Knowledge)
 GET  /health/live
 GET  /health/ready
+GET  /health/embedding
 ```
 
 Ví dụ request:
