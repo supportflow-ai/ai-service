@@ -6,11 +6,11 @@ Dành cho mọi người làm việc trong kho này, gồm lập trình viên, n
 
 **Kho này làm gì.** Dịch vụ FastAPI không lưu trạng thái, cung cấp:
 
-- `POST /v1/ticket-classifications`: gợi ý danh mục, mức ảnh hưởng, độ khẩn cấp cho phiếu theo hợp đồng v1. Provider `rule` (từ khóa) hoặc `noop` (trả 503 có kiểm soát).
+- `POST /v1/ticket-classifications`: gợi ý danh mục, mức ảnh hưởng, độ khẩn cấp cho phiếu theo hợp đồng v1. Hiện có provider `rule` (từ khóa) và `noop` (trả 503 có kiểm soát); mô hình học máy cục bộ cho MVP đang ở giai đoạn kế hoạch ([ml-classifier-plan.md](docs/ml-classifier-plan.md)).
 - `POST /v1/knowledge-indexes:prepare`: chuẩn bị chỉ mục bài viết Knowledge (chia khối Markdown, embedding CPU E5). Chỉ S2S.
 - `GET /health/live`, `/health/ready`, `/health/embedding`.
 
-**Không làm.** Không kết nối database nghiệp vụ; không đổi phiếu, quyền, độ ưu tiên hay luồng xử lý; không gọi model ngoài; chưa có tìm kiếm ngữ nghĩa hay RAG. Backend ([`ai-it-service-desk`](https://github.com/supportflow-ai/ai-it-service-desk)) giữ nghiệp vụ, phân quyền, bước người duyệt, lưu trữ và audit.
+**Không làm.** Không kết nối database nghiệp vụ; không đổi phiếu, quyền, độ ưu tiên hay luồng xử lý; **không gọi API hay dịch vụ model bên ngoài** (chủ dự án chốt 2026-11-13: cả phân loại và embedding dùng mô hình học máy cục bộ); chưa có tìm kiếm ngữ nghĩa hay RAG. Backend ([`ai-it-service-desk`](https://github.com/supportflow-ai/ai-it-service-desk)) giữ nghiệp vụ, phân quyền, bước người duyệt, lưu trữ và audit.
 
 Bảy điều cần nhớ trước khi sửa:
 
@@ -64,7 +64,7 @@ Có thể dùng `make install | lint | test | contract | run | baseline | docker
 
 ## 3. Quy tắc kỹ thuật
 
-- **Thêm provider phân loại:** triển khai `TicketClassifier` trong `adapters/classifiers/`, giữ đầu ra trong `ClassificationPrediction`, đăng ký ở `bootstrap.py`, thêm test hợp đồng và tích hợp, benchmark trên cùng gold set trước khi chọn làm mặc định.
+- **Thêm provider phân loại:** chỉ provider **chạy cục bộ**. Triển khai `TicketClassifier` trong `adapters/classifiers/`, giữ đầu ra trong `ClassificationPrediction`, đăng ký ở `bootstrap.py`, thêm test hợp đồng và tích hợp, benchmark trên cùng gold set (không dùng gold set để tinh chỉnh) trước khi chọn làm mặc định. Điểm số trả về phải được hiệu chỉnh hoặc để `null`; không giả lập xác suất. Artifact mô hình có phiên bản và SHA-256, tải lúc build, chạy ngoại tuyến.
 - **Hợp đồng:** schema v1 kiểm chặt kiểu ở cả request và response; phản hồi lặp nguyên `requestId`, `ticketId`, `ticketRevision`, `inputHash`. AI chỉ kiểm định dạng `inputHash`, không tính lại.
 - **Bảo mật:** không truyền JWT người dùng, không cấp credential database nghiệp vụ, không trả hành động đặc quyền. Giới hạn body mặc định 64 KiB (`SUPPORTFLOW_AI_MAX_REQUEST_BYTES`, tối đa 1 MiB). Chưa có giới hạn tốc độ phân tán, xoay vòng credential nâng cao hay mTLS; đặt dịch vụ trong mạng riêng, không mở cổng công khai.
 - **Dependency:** runtime ghim trong `requirements-runtime.lock`; dependency kiểm thử nằm ở `pyproject.toml`. Không nới ghim để build đạt.
@@ -84,7 +84,7 @@ Quy ước đầy đủ ở [cẩm nang chung](docs/team-handbook.md). Điểm r
 
 - Không đưa token, khóa hay dữ liệu thật vào Git, log, fixture hay ảnh chụp. Token dịch vụ sinh riêng (ví dụ `python -c "import secrets; print(secrets.token_urlsafe(48))"`) và đặt trong `.env`, không gửi qua chat.
 - Không tự push, hợp nhất PR, phát hành image hay triển khai khi chưa được giao. Không dispatch job phát hành GHCR khi chưa được yêu cầu.
-- Không gọi dịch vụ model bên ngoài hay tải model mới ngoài nhiệm vụ; không thay provider mặc định của môi trường chạy thật khi chưa được duyệt.
+- **Không gọi API hay dịch vụ model bên ngoài**, kể cả tạm thời hoặc để thử nghiệm; không đưa khóa của nhà cung cấp model vào `.env`, Compose hay CI. Không tải model mới ngoài nhiệm vụ (chỉ tải lúc build, ghim revision và hash); không thay provider mặc định của môi trường chạy thật khi chưa được duyệt.
 - Không sửa test, fixture, `contract.lock.json` hay hợp đồng để làm CI xanh.
 
 ## 6. Đồng bộ với kho khác
@@ -92,7 +92,7 @@ Quy ước đầy đủ ở [cẩm nang chung](docs/team-handbook.md). Điểm r
 | Bạn đổi | Phải làm |
 | --- | --- |
 | Hợp đồng phân loại v1 | Chủ sở hữu là **backend**: sửa ở `contracts/ai/v1/openapi.yaml` của backend trước, rồi cập nhật bản sao ở đây và `contract.lock.json` (SHA nguồn, hash) trong cùng đợt |
-| Hợp đồng chỉ mục tri thức (`knowledge-indexes:prepare`) | Phối hợp với backend, nơi sẽ tiêu tốn endpoint này. Tại `dev@07ce07a` backend **chưa có** hợp đồng, migration hay mã tiêu thụ; kiểm tra lại trước khi tuyên bố luồng đầu cuối đã chạy |
+| Hợp đồng chỉ mục tri thức (`knowledge-indexes:prepare`) | Chủ dự án đã chốt (2026-11-13) backend sẽ tiêu thụ endpoint này; kế hoạch ở `docs/architecture/ai-integration-plan.md` của backend. Tại `dev@ef4390d` backend **chưa có** hợp đồng, migration hay mã tiêu thụ; kiểm tra lại trước khi tuyên bố luồng đầu cuối đã chạy |
 | Cổng 8000, đường dẫn health, biến môi trường `SUPPORTFLOW_AI_*`, `Dockerfile` | **infra** (Compose dùng `SUPPORTFLOW_AI_SERVICE_TOKEN` lấy từ `AI_S2S_BEARER_TOKEN`) và **backend** (cấu hình `Ai__*`) |
 | Phát hành image | Chỉ **infra** ghim digest trong `sources.lock.json`; chỉ nâng khi có quyết định phát hành |
 

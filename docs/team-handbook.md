@@ -12,7 +12,7 @@ SupportFlow AI là hệ thống IT Service Desk: người dùng tạo phiếu h�
 | --- | --- | --- | --- |
 | [`ai-it-service-desk`](https://github.com/supportflow-ai/ai-it-service-desk) | Backend: API, nghiệp vụ, phân quyền, schema và migration, hợp đồng HTTP và hợp đồng AI v1 | .NET 10, ASP.NET Core, EF Core, PostgreSQL | `nhánh làm việc → dev → main` |
 | [`ai-it-service-desk-web`](https://github.com/supportflow-ai/ai-it-service-desk-web) | Giao diện web | React 19, TypeScript, Vite, Ant Design | `nhánh làm việc → dev → main` |
-| [`ai-service`](https://github.com/supportflow-ai/ai-service) | Dịch vụ gợi ý phân loại phiếu, không có database | Python 3.12, FastAPI | `nhánh làm việc → main` |
+| [`ai-service`](https://github.com/supportflow-ai/ai-service) | Dịch vụ gợi ý phân loại phiếu và tạo embedding bằng mô hình học máy cục bộ; không có database, không gọi API bên ngoài | Python 3.12, FastAPI | `nhánh làm việc → main` |
 | [`supportflow-ai-infra`](https://github.com/supportflow-ai/supportflow-ai-infra) | Docker Compose, NGINX, ghim phiên bản phát hành, kiểm thử khói toàn hệ thống | Docker Compose, NGINX, Python, Shell | `nhánh làm việc → main` |
 
 ```mermaid
@@ -28,7 +28,7 @@ flowchart TD
 Ranh giới sở hữu:
 
 - **Backend** sở hữu dữ liệu, quyền nghiệp vụ, trạng thái phiếu và mọi quyết định áp dụng gợi ý AI. Web chỉ hiển thị và không phải ranh giới bảo mật; ẩn nút không thay cho kiểm tra quyền ở backend.
-- **ai-service** chỉ nhận yêu cầu nội bộ giữa các dịch vụ, trả gợi ý. Không kết nối database nghiệp vụ, không đổi phiếu, quyền hay luồng xử lý.
+- **ai-service** chỉ nhận yêu cầu nội bộ giữa các dịch vụ, trả gợi ý. Phân loại và embedding chạy bằng mô hình học máy cục bộ; **không gọi API hay dịch vụ model bên ngoài**. Không kết nối database nghiệp vụ, không đổi phiếu, quyền hay luồng xử lý.
 - **infra** không chứa mã ứng dụng hay migration. Nó ghép các thành phần và kiểm chứng chúng chạy cùng nhau.
 
 ## 2. Bắt đầu nhanh
@@ -40,11 +40,12 @@ Ranh giới sở hữu:
 | .NET SDK | Theo `global.json` của backend |
 | Node.js | 22 (xem `.nvmrc` của web) |
 | Python | 3.12 |
+| PostgreSQL | 17, image `pgvector/pgvector` 0.8.1 |
 | Docker | Cần cho PostgreSQL local, MinIO, kiểm thử tích hợp backend và build image |
 
 Chạy local theo thứ tự (mỗi bước một terminal; lệnh chi tiết ở README của từng kho):
 
-1. **infra**: `docker compose up -d` chạy PostgreSQL 16, MinIO và Mailpit.
+1. **infra**: `docker compose up -d` chạy PostgreSQL 17 (pgvector), MinIO và Mailpit.
 2. **backend**: restore và build, chạy `migrate` rồi `seed-roles` bằng công cụ Migrator khi database mới, sau đó khởi chạy API tại cổng 5000.
 3. **ai-service** (tùy chọn, chỉ khi cần thử hợp đồng AI): `uvicorn` tại cổng 8000.
 4. **web**: `npm ci` rồi `npm run dev` tại cổng 5173; Vite chuyển `/api` sang cổng 5000.
@@ -65,7 +66,7 @@ Ví dụ: `fix(ticketing): chặn truy cập phiếu ngoài phạm vi`. Mỗi co
 
 **Pull Request.** Tiêu đề cùng dạng với commit. Mô tả nêu: vấn đề và hành vi sau thay đổi; phạm vi chịu ảnh hưởng; lệnh kiểm tra đã chạy cùng kết quả và SHA; phần chưa chạy kèm lý do; ảnh hưởng tới kho khác (mục 4); cách rollback nếu có tác động tới dữ liệu hay vận hành.
 
-**Duyệt và hợp nhất.** CI của kho phải đạt trên commit mới nhất của PR. Cần ít nhất một người khác đánh giá; không tự phê duyệt PR của mình. GitHub hiện chưa bật bảo vệ nhánh hay CODEOWNERS ở cả bốn kho, nên các quy tắc này là thỏa thuận của nhóm, không có cơ chế tự động ép buộc. Vì vậy từng người phải tự giữ.
+**Duyệt và hợp nhất.** CI của kho phải đạt trên commit mới nhất của PR. Cần ít nhất một người khác đánh giá; không tự phê duyệt PR của mình. Từ 2026-11-13 GitHub bảo vệ nhánh `main` ở cả bốn kho và `dev` ở backend và web: phải đi qua PR, cần 1 phê duyệt, cấm force-push và xóa nhánh. Quét bí mật và push protection cũng đã bật. Quản trị viên của kho vẫn vượt qua được (chưa bật áp dụng cho quản trị viên), chưa có CODEOWNERS và chưa đặt kiểm tra trạng thái bắt buộc, nên người có quyền quản trị phải tự giữ quy tắc.
 
 Không force-push nhánh dùng chung, không viết lại lịch sử đã đẩy lên GitHub.
 
