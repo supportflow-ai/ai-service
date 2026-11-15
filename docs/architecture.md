@@ -68,13 +68,12 @@ AI service không truy cập trực tiếp Service Desk PostgreSQL.
 ```text
 classification:
   rule baseline
-      -> local transformer
-      -> fine-tuned model
-      -> external LLM adapter
+      -> local ML classifier (embedding head hoặc TF-IDF, xem ml-classifier-plan.md)
+      -> fine-tuned local model (nếu cần)
 
 embedding:
   NoOp
       -> multilingual embedding adapter
 ```
 
-Mỗi provider triển khai port riêng; HTTP contract và Application use case không đổi.
+Mỗi provider triển khai port riêng; HTTP contract và Application use case không đổi. Chủ dự án chốt ngày 2026-11-13: mọi provider chạy cục bộ, **không có adapter gọi API hay LLM bên ngoài**. Kế hoạch chi tiết: [ml-classifier-plan.md](ml-classifier-plan.md).

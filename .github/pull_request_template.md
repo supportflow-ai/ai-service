@@ -34,7 +34,7 @@ python -m compileall -q src evaluation scripts
 
 - [ ] CI đạt trên commit mới nhất của PR
 - [ ] Có ít nhất một người khác đánh giá; không tự phê duyệt PR của mình
-- [ ] Tài liệu liên quan đã cập nhật bằng tiếng Việt, hoặc nêu lý do không cần: 
+- [ ] Tài liệu liên quan đã cập nhật bằng tiếng Việt, hoặc nêu lý do không cần:
 - [ ] Không có token, khóa hay dữ liệu thật trong mã, log, fixture; không log `title`, `description`, `content`, vector
 - [ ] Không sửa test, fixture, `contract.lock.json` hay hợp đồng để làm CI xanh
 - [ ] Không phát hành image hay đổi provider mặc định khi chưa được duyệt
