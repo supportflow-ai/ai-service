@@ -61,12 +61,15 @@ Xem `docs/architecture.md`.
 | FastAPI classification endpoint | Có |
 | Service Bearer auth | Có |
 | NoOp provider / controlled 503 | Có |
-| Rule-based baseline | Có |
+| Rule-based baseline | Có, chỉ gợi ý Category; không khớp từ khóa thì trả `OTHER` |
+| Gợi ý Impact/Urgency | Chưa có (hợp đồng v1 cho phép, rule baseline chưa sinh) |
+| Abstain, tín hiệu giải thích | Chưa có |
+| Che dữ liệu cá nhân (PII) cho dữ liệu huấn luyện | Chưa có |
 | Model phân loại học máy | Chưa chọn (dùng rule baseline) |
 | Embedding CPU E5 và chuẩn bị chỉ mục Knowledge | Có (`POST /v1/knowledge-indexes:prepare`, `GET /health/embedding`); backend chưa tiêu thụ |
 | Tìm kiếm ngữ nghĩa, truy vấn embedding | Chưa có |
 | RAG | Chưa đưa vào MVP |
-| Evaluation baseline | Có |
+| Evaluation baseline | Có, trên 11 mẫu smoke (`evaluation/sample-classification.jsonl`), chưa có gold set |
 
 ## Chạy local
 

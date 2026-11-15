@@ -6,7 +6,7 @@ Dành cho mọi người làm việc trong kho này, gồm lập trình viên, n
 
 **Kho này làm gì.** Dịch vụ FastAPI không lưu trạng thái, cung cấp:
 
-- `POST /v1/ticket-classifications`: gợi ý danh mục, mức ảnh hưởng, độ khẩn cấp cho phiếu theo hợp đồng v1. Hiện có provider `rule` (từ khóa) và `noop` (trả 503 có kiểm soát); mô hình học máy cục bộ cho MVP đang ở giai đoạn kế hoạch ([ml-classifier-plan.md](docs/ml-classifier-plan.md)).
+- `POST /v1/ticket-classifications`: gợi ý danh mục, mức ảnh hưởng, độ khẩn cấp cho phiếu theo hợp đồng v1. Hiện có provider `rule` (từ khóa; **chỉ gợi ý danh mục**, trả `OTHER` khi không khớp từ khóa nào) và `noop` (trả 503 có kiểm soát); mô hình học máy cục bộ cho MVP đang ở giai đoạn kế hoạch ([ml-classifier-plan.md](docs/ml-classifier-plan.md)).
 - `POST /v1/knowledge-indexes:prepare`: chuẩn bị chỉ mục bài viết Knowledge (chia khối Markdown, embedding CPU E5). Chỉ S2S.
 - `GET /health/live`, `/health/ready`, `/health/embedding`.
 

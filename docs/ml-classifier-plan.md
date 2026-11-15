@@ -42,6 +42,14 @@ Không chọn trước bằng suy đoán. So sánh trên cùng gold set:
 - Nguồn dữ liệu: phiếu lịch sử (chứa thông tin cá nhân) hay dữ liệu tổng hợp; **chưa chốt**. Dữ liệu có thông tin cá nhân phải ẩn danh hóa trước khi dùng, không đưa vào Git, và lưu nơi có kiểm soát truy cập.
 - Gold set tách khỏi tập huấn luyện và tập kiểm định, không dùng để tinh chỉnh; có phiên bản taxonomy, quy tắc gán nhãn, hai người duyệt và xử lý bất đồng.
 - Mọi lần đánh giá ghi: SHA mã, phiên bản dữ liệu, phiên bản mô hình, số mẫu từng lớp.
+- Nguồn nhãn rẻ nhất: cặp (danh mục người gửi chọn, danh mục nhân viên chốt) trên phiếu đã đóng. Backend chỉ giữ được cặp này khi thêm `RequesterCategoryId` (kế hoạch tích hợp AI của backend, mục 3.2.1); nhãn người gửi là nhãn yếu, không thay gold set.
+
+### 5.1 Việc sửa rule baseline trước khi có mô hình (đối chiếu mã 2026-11-16)
+
+- **Abstain thay vì đoán `OTHER`.** `RuleBasedClassifier` hiện trả `OTHER` khi không khớp từ khóa, với `score: null`. Giao diện sẽ hiện "AI gợi ý OTHER" cạnh danh mục người gửi đã chọn, và backend xếp `score: null` vào dải tin cậy rỗng, nên người duyệt không biết đó là giá trị mặc định. Hợp đồng v1 cho phép `suggestions: []` (không có `min_length`; backend chấp nhận danh sách rỗng). Khi đổi: chỉ trả `OTHER` cho từ khóa máy chủ rõ ràng ("server", "máy chủ", "may chu", "vps"; không dùng "database" vì trùng `SW`, `ACCESS`), và cập nhật `tests/unit/test_rule_based_classifier.py` đang kỳ vọng `OTHER`.
+- **Báo cáo abstain.** `run_classification` báo thêm `coverage` (tỷ lệ mẫu có dự đoán) và `selective_accuracy` (độ chính xác trên mẫu có dự đoán), giữ nguyên schema `sample-classification.jsonl`. Abstain trên mẫu `OTHER` mơ hồ (`s11`) tính vào coverage, không tính là sai nhãn.
+- **Tiếng Việt không dấu.** `_normalize` chỉ áp dụng NFKC và casefold, không bỏ dấu. Chỉ so khớp không dấu cho cụm nhiều từ; bỏ dấu từ đơn gây trùng nghĩa ("mạng" thành "mang", "máy" thành "may").
+- **Luật tạm cho Impact/Urgency (nếu làm trước mô hình):** chỉ dùng cụm hẹp ("cả phòng", "toàn công ty"; "ngừng làm việc", "không làm việc được") kèm bản không dấu, trả `score: null`, không khớp thì không thêm gợi ý. Ghi chú `shortcut:` trong mã vì sẽ thay bằng mô hình.
 
 ## 6. Đóng gói và vận hành
 
