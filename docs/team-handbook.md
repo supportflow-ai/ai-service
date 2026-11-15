@@ -21,7 +21,7 @@ flowchart TD
     Gateway --> Web["Web (ai-it-service-desk-web)"]
     Gateway -->|"/api"| Api["Backend (ai-it-service-desk)"]
     Api --> Db["PostgreSQL"]
-    Api --> Files["MinIO"]
+    Api --> Files["Lưu trữ tệp: Cloudflare R2 (ADR-017; mã hiện còn MinIO)"]
     Api -.->|"hợp đồng AI v1 (chưa nối vào luồng xử lý phiếu)"| Ai["ai-service"]
 ```
 
@@ -41,11 +41,13 @@ Ranh giới sở hữu:
 | Node.js | 22 (xem `.nvmrc` của web) |
 | Python | 3.12 |
 | PostgreSQL | 17, image `pgvector/pgvector` 0.8.1 |
-| Docker | Cần cho PostgreSQL local, MinIO, kiểm thử tích hợp backend và build image |
+| Docker | Cần cho PostgreSQL local, kiểm thử tích hợp backend và build image (MinIO local chỉ còn tới khi mã R2 thay thế) |
 
 Chạy local theo thứ tự (mỗi bước một terminal; lệnh chi tiết ở README của từng kho):
 
-1. **infra**: `docker compose up -d` chạy PostgreSQL 17 (pgvector), MinIO và Mailpit.
+1. **infra**: `docker compose -f docker-compose.yml up -d` chạy PostgreSQL 17 (pgvector), MinIO và Mailpit. Phải chỉ rõ `-f docker-compose.yml`, vì kho có cả `compose.yaml` (stack smoke của CI) và Compose ưu tiên tệp đó khi gọi không có `-f`.
+
+> **Lưu trữ tệp: Cloudflare R2, không dùng MinIO** ([ADR-017](https://github.com/supportflow-ai/ai-it-service-desk/blob/dev/docs/adr/ADR-017-cloudflare-r2-object-storage.md), chấp nhận 2026-11-16, mọi môi trường kể cả kiểm thử và CI). Mã hiện vẫn chạy MinIO cho tới khi các PR R2 hoàn tất; trong lúc đó không thêm mã, cấu hình, kiểm thử hay tài liệu mới dựa trên MinIO. Không cần tệp đính kèm thì chỉ cần khởi động PostgreSQL: `docker compose -f docker-compose.yml up -d postgres`.
 2. **backend**: restore và build, chạy `migrate` rồi `seed-roles` bằng công cụ Migrator khi database mới, sau đó khởi chạy API tại cổng 5000.
 3. **ai-service** (tùy chọn, chỉ khi cần thử hợp đồng AI): `uvicorn` tại cổng 8000.
 4. **web**: `npm ci` rồi `npm run dev` tại cổng 5173; Vite chuyển `/api` sang cổng 5000.
