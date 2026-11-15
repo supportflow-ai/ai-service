@@ -1,6 +1,6 @@
 # Ảnh hưởng của việc chuyển MinIO sang Cloudflare R2 lên ai-service
 
-Trạng thái: kế hoạch đề xuất chờ chủ dự án duyệt. Cập nhật 2026-11-13, đối chiếu `main` tại `c4669a7`. Quyết định nằm ở ADR-017 của kho backend (`docs/adr/ADR-017-cloudflare-r2-object-storage.md`); kế hoạch các kho khác: backend (`docs/architecture/r2-storage-plan.md`), web (`docs/architecture/r2-upload-plan.md`), infra (`docs/infra/r2-storage-plan.md`).
+Trạng thái: kế hoạch đề xuất, đã duyệt cùng ADR-017 (chấp nhận 2026-11-16, toàn phạm vi: không dùng MinIO ở mọi môi trường, kể cả kiểm thử và CI); chưa triển khai, bắt đầu bằng giai đoạn 0. Cập nhật 2026-11-13, đối chiếu `main` tại `c4669a7`. Quyết định nằm ở ADR-017 của kho backend (`docs/adr/ADR-017-cloudflare-r2-object-storage.md`); kế hoạch các kho khác: backend (`docs/architecture/r2-storage-plan.md`), web (`docs/architecture/r2-upload-plan.md`), infra (`docs/infra/r2-storage-plan.md`).
 
 ## Kết luận
 
