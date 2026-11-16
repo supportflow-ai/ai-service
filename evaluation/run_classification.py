@@ -20,7 +20,7 @@ async def main() -> None:
     ]
 
     y_true: list[str] = []
-    y_pred: list[str] = []
+    y_pred: list[str | None] = []
 
     for row in rows:
         prediction = await classifier.classify(
@@ -28,14 +28,23 @@ async def main() -> None:
             description=row["description"],
         )
         category = next(
-            item.value.value
-            for item in prediction.suggestions
-            if item.field == SuggestionField.CATEGORY
+            (
+                item.value.value
+                for item in prediction.suggestions
+                if item.field == SuggestionField.CATEGORY
+            ),
+            None,
         )
         y_true.append(row["goldCategory"])
         y_pred.append(category)
 
-    report = classification_report(y_true, y_pred, labels=[category.value for category in Category])
+    report = classification_report(
+        y_true,
+        y_pred,
+        labels=[category.value for category in Category],
+        # OTHER means "not enough information" in the taxonomy, so abstaining on it is not an error.
+        neutral_abstain_labels=frozenset({Category.OTHER.value}),
+    )
     report["provider"] = classifier.name
     report["dataset"] = "sample-classification.jsonl"
     report["evidenceStatus"] = "smoke-only-not-gold"
