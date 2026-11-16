@@ -1,5 +1,21 @@
 # Đối chiếu backend
 
+## Mốc đối chiếu mới nhất: 16/11/2026
+
+Đối chiếu nhánh `dev` của [ai-it-service-desk](https://github.com/supportflow-ai/ai-it-service-desk) tại `3640c33` (sau khi fetch ngày 16/11/2026).
+
+- **Hợp đồng v1:** file `openapi.yaml` không đổi từ `3de4b74` (18/10/2026); `fa6f89d` (20/10) chỉ sửa README trong thư mục này. SHA-256 của `contracts/ai/v1/openapi.yaml` là `ad1d93230158b9ee66c6e3d0843edafcadde97b01bd2adef62265e4cf7f16428`, khớp `contract.lock.json`. Không cần cập nhật bản ghim.
+- **Schema request:** `ticketRevision` là số nguyên không âm, kiểu strict; `inputHash` đúng mẫu 64 ký tự hex. Khớp với ai-service.
+- **[ADR-012](https://github.com/supportflow-ai/ai-it-service-desk/blob/dev/docs/adr/ADR-012-ai-contract-and-future-transport.md):** điểm `null` khi chưa có bằng chứng, tối đa một đề xuất cho mỗi trường, AI không nhận quyền ghi. Khớp với ai-service. Các quy định về thời gian chờ, thử lại và ngắt mạch thuộc bộ tích hợp phía backend, ai-service không đổi.
+- **[ADR-016](https://github.com/supportflow-ai/ai-it-service-desk/blob/dev/docs/adr/ADR-016-support-team-routing-and-agent-scope.md):** AI không chọn nhóm xử lý hay Agent cụ thể. Ai-service không trả trường nào liên quan đến định tuyến.
+- **Enum và PriorityMatrix:** không đổi, xem [g1-doi-chieu-enum.md](g1-doi-chieu-enum.md).
+- **[Kế hoạch tích hợp AI](https://github.com/supportflow-ai/ai-it-service-desk/blob/dev/docs/architecture/ai-integration-plan.md)** (cập nhật 16/11/2026):
+  - Backend chưa có hợp đồng, migration hay mã tiêu thụ cho `POST /v1/knowledge-indexes:prepare`. Bản sao `contracts/ai/knowledge-index/v1` ở ai-service chưa có nguồn để ghim; theo kế hoạch, backend sẽ là bản chuẩn.
+  - Backend chờ ai-service ở bước 4 (chế độ NoOp rồi `local-e5`) và bước 5 (phân loại nền, dùng `rule` cho tới khi có mô hình thật).
+  - DEC-09 (`Triaged`) chưa được chốt; không ảnh hưởng hợp đồng v1.
+- **Phạm vi Knowledge (quyết định của chủ dự án, theo tài liệu kiến trúc v3.0 ngày 15/11/2026):** Knowledge là P2, ngoài MVP. Mã `knowledge-indexes:prepare`, embedding E5 và bản sao hợp đồng `contracts/ai/knowledge-index` đang có được giữ nguyên, không phát triển thêm. Mở lại chỉ khi có quyết định về corpus Published, endpoint S2S read-only và hợp đồng v2.
+- Kế hoạch tích hợp AI của Backend (mục Knowledge, bước 3–4) chưa đồng bộ với quyết định này; cần Backend cập nhật trước khi tích hợp Knowledge.
+
 ## Tích hợp S2S tại mốc ngày 05/11/2026
 
 Đối chiếu [AI Service `main@7c09102`](https://github.com/supportflow-ai/ai-service/commit/7c0910298c35150cb28ed2a71605b8c4e03a3938) và [Backend `main@bf38ef9`](https://github.com/supportflow-ai/ai-it-service-desk/commit/bf38ef903f46f6ea21f80da44c11d437391a9efb). Hai bản OpenAPI phân loại v1 khớp từng byte. Backend công bố hợp đồng, AI Service ghim bản sao và checksum. [OpenAPI v1](../contracts/ai/v1/openapi.yaml) · [Bản ghim](../contract.lock.json)
