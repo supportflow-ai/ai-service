@@ -159,12 +159,21 @@ class RuleBasedClassifier:
                 "thiet bi moi",
             ),
         ),
+        (
+            Category.OTHER,
+            (
+                "server",
+                "máy chủ",
+                "may chu",
+                "vps",
+            ),
+        ),
     )
 
     @staticmethod
     def _matches(text: str, keyword: str) -> bool:
         term = _normalize(keyword)
-        if term in {"lan", "ram", "ssd", "dns", "vpn"}:
+        if term in {"lan", "ram", "ssd", "dns", "vpn", "vps", "máy chủ", "may chu"}:
             return re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text) is not None
         return term in text
 
@@ -175,7 +184,7 @@ class RuleBasedClassifier:
     async def classify(self, *, title: str, description: str) -> ClassificationPrediction:
         text = _normalize(f"{title}\n{description}")
 
-        best_category = Category.OTHER
+        best_category: Category | None = None
         best_hits = 0
 
         for category, keywords in self._KEYWORDS:
@@ -189,6 +198,9 @@ class RuleBasedClassifier:
             if hits > best_hits:
                 best_category = category
                 best_hits = hits
+
+        if best_category is None:
+            return ClassificationPrediction(suggestions=())
 
         return ClassificationPrediction(
             suggestions=(
