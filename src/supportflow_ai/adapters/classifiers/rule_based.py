@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from supportflow_ai.adapters.classifiers.severity_rules import infer_severity
 from supportflow_ai.domain.classification import (
     Category,
     ClassificationPrediction,
@@ -22,7 +23,8 @@ class RuleBasedClassifier:
 
     This adapter exists to satisfy the project's baseline-comparison requirement.
     It is NOT presented as the final ML model and therefore returns score=None.
-    It only suggests category; impact/urgency remain for a later validated model.
+    Category comes from keywords; Impact/Urgency come only from the E0 rubric in
+    severity_rules, which emits High suggestions and omits the rest.
     """
 
     _KEYWORDS: tuple[tuple[Category, tuple[str, ...]], ...] = (
@@ -183,6 +185,7 @@ class RuleBasedClassifier:
 
     async def classify(self, *, title: str, description: str) -> ClassificationPrediction:
         text = _normalize(f"{title}\n{description}")
+        severity = infer_severity(text)
 
         best_category: Category | None = None
         best_hits = 0
@@ -193,21 +196,15 @@ class RuleBasedClassifier:
             # The backend still enforces mandatory manual triage for SEC.
             if category == Category.SEC and hits:
                 return ClassificationPrediction(
-                    suggestions=(Suggestion(SuggestionField.CATEGORY, Category.SEC),)
+                    suggestions=(Suggestion(SuggestionField.CATEGORY, Category.SEC), *severity)
                 )
             if hits > best_hits:
                 best_category = category
                 best_hits = hits
 
-        if best_category is None:
-            return ClassificationPrediction(suggestions=())
-
-        return ClassificationPrediction(
-            suggestions=(
-                Suggestion(
-                    field=SuggestionField.CATEGORY,
-                    value=best_category,
-                    score=None,
-                ),
+        category_suggestions: tuple[Suggestion, ...] = ()
+        if best_category is not None:
+            category_suggestions = (
+                Suggestion(field=SuggestionField.CATEGORY, value=best_category, score=None),
             )
-        )
+        return ClassificationPrediction(suggestions=(*category_suggestions, *severity))
