@@ -68,7 +68,7 @@ AI service không truy cập trực tiếp Service Desk PostgreSQL.
 ```text
 classification:
   rule baseline
-      -> local ML classifier (embedding head hoặc TF-IDF, xem ml-classifier-plan.md)
+      -> local ML classifier (TF-IDF + tuyến tính hoặc PhoBERT, chọn theo đánh giá; xem ml-classifier-plan.md)
       -> fine-tuned local model (nếu cần)
 
 embedding:
