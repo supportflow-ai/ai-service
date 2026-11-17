@@ -61,7 +61,7 @@ Xem `docs/architecture.md`.
 | FastAPI classification endpoint | Có |
 | Service Bearer auth | Có |
 | NoOp provider / controlled 503 | Có |
-| Rule-based baseline | Có, chỉ gợi ý Category; không khớp từ khóa thì trả `OTHER` |
+| Rule-based baseline | Có: Category theo từ khóa; Impact/Urgency chỉ ở mức `High` theo rubric E0; không khớp từ khóa thì không gợi ý; từ khóa máy chủ/hạ tầng trả `OTHER` |
 | Gợi ý Impact/Urgency | Chưa có (hợp đồng v1 cho phép, rule baseline chưa sinh) |
 | Abstain, tín hiệu giải thích | Chưa có |
 | Che dữ liệu cá nhân (PII) cho dữ liệu huấn luyện | Chưa có |

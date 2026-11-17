@@ -54,6 +54,23 @@ def test_rule_provider_response_conforms_to_backend_contract():
     assert "actions" not in body
 
 
+def test_rule_provider_abstains_with_schema_valid_empty_suggestions():
+    app = create_app(Settings(auth_enabled=False, classifier_provider="rule"))
+    client = TestClient(app)
+
+    payload = {**VALID_REQUEST, "title": "Chào anh chị", "description": "Máy bị lỗi rồi"}
+    response = client.post("/v1/ticket-classifications", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    Draft202012Validator(
+        _schema("ClassificationResponse"),
+        format_checker=FormatChecker(),
+    ).validate(body)
+    assert body["suggestions"] == []
+    assert body["inputHash"] == VALID_REQUEST["inputHash"]
+
+
 def test_request_with_extra_business_field_is_rejected_as_400():
     app = create_app(Settings(auth_enabled=False, classifier_provider="rule"))
     client = TestClient(app)
