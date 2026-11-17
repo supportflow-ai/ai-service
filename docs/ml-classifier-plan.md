@@ -1,92 +1,145 @@
-# Kế hoạch mô hình phân loại học máy cục bộ
+# Định hướng và kế hoạch mô hình phân loại phiếu
 
-Trạng thái: kế hoạch đề xuất chờ chủ dự án duyệt, chưa triển khai. Cập nhật 2026-11-13, đối chiếu `main` tại `9ebba7f`. Kiến trúc hiện hành: [architecture.md](architecture.md). Phía backend: `docs/architecture/ai-integration-plan.md` trong kho `ai-it-service-desk`.
+Trạng thái: định hướng đề xuất, chờ chủ dự án và giảng viên hướng dẫn duyệt các mục đánh dấu **[cần duyệt]**. Cập nhật 2026-11-17, đối chiếu `main` tại `751c8a8` và PR #18 (đưa #13, #14 vào `main`). Kiến trúc hiện hành: [architecture.md](architecture.md). Phía backend: `docs/architecture/ai-integration-plan.md` và ADR-016 trong kho `ai-it-service-desk`.
 
-## 1. Quyết định đã chốt (chủ dự án, 2026-11-13)
+## 1. Bài toán theo đề xuất của giảng viên
+
+Service desk kỹ thuật tiếng Việt. Luồng:
+
+```
+Người dùng tạo phiếu → Backend tiếp nhận → AI phân tích, trả gợi ý
+→ Backend tính Priority (PriorityMatrix) và chọn nhóm xử lý (RoutingRule)
+→ Agent/Lead/Admin kiểm duyệt, phân công → Xử lý → Đóng phiếu
+```
+
+| Chức năng | AI Service làm | Backend làm |
+| --- | --- | --- |
+| Phân loại phiếu | Gợi ý một trong 11 danh mục (ACC, NET, VPN, MAIL, SW, HW, PRINT, ACCESS, EQUIP, SEC, OTHER) | Lưu gợi ý, hiển thị cho người duyệt |
+| Đánh giá mức độ | Gợi ý Impact và Urgency (Low, Medium, High) | Tính Priority P1–P4 theo [ma trận](g1-doi-chieu-enum.md) |
+| Hỗ trợ định tuyến | Không làm. Chỉ cung cấp Category | `RoutingRule` ánh xạ `TicketCategory → SupportTeam` (ADR-016); người duyệt chốt và phân công |
+
+Hệ quả cho AI Service: **chỉ cần làm tốt ba trường gợi ý và điểm tin cậy**. Hợp đồng v1 đã đủ cho cả ba trường nên không cần đổi hợp đồng. Lỗi Category nặng nhất là lỗi làm phiếu đi sai nhóm, nên phần đánh giá đo riêng loại lỗi này (mục 5).
+
+Tìm tài liệu liên quan (Knowledge, ý tưởng ban đầu) là P2, ngoài MVP theo tài liệu kiến trúc v3.0 ngày 15/11/2026. Mã `knowledge-indexes:prepare` và embedding E5 giữ nguyên, không phát triển thêm cho đến khi có quyết định mới.
+
+## 2. Ràng buộc đã chốt (chủ dự án, 2026-11-13)
 
 1. MVP tích hợp **mô hình phân loại thật**.
-2. ai-service dùng **mô hình học máy cục bộ cho cả embedding và phân loại, không gọi API hay dịch vụ model bên ngoài** (không có "tạm thời" hay ngoại lệ theo nhà cung cấp). Dữ liệu phiếu không rời hệ thống.
-3. README của ai-service giữ nguyên; bảng trạng thái ở đó chỉ được sửa khi mô hình thật đã vào `main`.
-4. Backend tiêu thụ `POST /v1/knowledge-indexes:prepare`.
+2. Mô hình chạy **cục bộ**, không gọi API hay dịch vụ model bên ngoài. Dữ liệu phiếu không rời hệ thống.
+3. AI chỉ gợi ý. Backend giữ quyền ghi, phân quyền, audit; người duyệt quyết định cuối.
+4. Điểm số phải được hiệu chỉnh hoặc để `null`. Backend chia dải tin cậy: Thấp dưới 0,4; Cao từ 0,75.
 
-## 2. Hiện trạng (đã kiểm tra trong mã)
+## 3. Hiện trạng (sau PR #18)
 
 | Phần | Trạng thái |
 | --- | --- |
-| Phân loại | Provider `rule` (từ khóa, `score = null`, không giả lập xác suất) và `noop` (503 có kiểm soát), chọn bằng `SUPPORTFLOW_AI_CLASSIFIER_PROVIDER` ở `bootstrap.py`; cổng `TicketClassifier.classify(title, description) → ClassificationPrediction` |
-| Phân loại: đầu ra theo hợp đồng v1 | Ba trường gợi ý: `category` (11 giá trị: ACC, NET, VPN, MAIL, SW, HW, PRINT, ACCESS, EQUIP, SEC, OTHER), `impact` và `urgency` (Low, Medium, High) |
-| Embedding | `local-e5` thật (`intfloat/multilingual-e5-small`, 384 chiều, CPU, tải lúc build, chạy offline) và `noop` |
-| Đánh giá | `evaluation/run_classification.py` và `classification_report` trong `evaluation/metrics.py`; `sample-classification.jsonl` chỉ là dữ liệu smoke, **không phải gold set** |
-| Gold set | Chưa có. Yêu cầu theo [DATASET.md](../evaluation/DATASET.md): taxonomy có phiên bản, quy tắc gán nhãn, ít nhất hai người duyệt, xử lý bất đồng, không dùng để tinh chỉnh mô hình; báo cáo gồm Accuracy, Macro-F1, F1 từng lớp, ma trận nhầm lẫn |
+| Rule baseline (`rule`) | Category theo từ khóa; không khớp thì `suggestions: []`; `OTHER` chỉ khi có từ khóa máy chủ/hạ tầng. Impact/Urgency chỉ mức `High` theo rubric E0. `score: null` |
+| Đánh giá | `evaluation/metrics.py` có Accuracy, Macro-F1, F1 từng lớp, ma trận nhầm lẫn, `coverage`, `selectiveAccuracy` |
+| Dữ liệu | Chỉ có 11 mẫu smoke. **Chưa có dữ liệu huấn luyện và gold set**: đây là việc chặn mọi bước sau |
+| Hạ tầng ML | Stage `embeddings` của Dockerfile đã có `torch` CPU, `transformers`, `sentence-transformers` (dùng cho E5) |
 
-Backend dùng điểm số để chia dải tin cậy (Thấp dưới 0,4; Cao từ 0,75 trở lên). Điểm của mô hình mới phải **được hiệu chỉnh** để các ngưỡng đó có nghĩa; điểm chưa hiệu chỉnh không được trả về như xác suất.
+## 4. Ba phương án so sánh
 
-## 3. Mục tiêu
+Theo yêu cầu của giảng viên: so sánh Rule-based, TF-IDF + mô hình tuyến tính, PhoBERT trên **cùng một gold set**, chọn theo chất lượng và hiệu năng thực tế.
 
-Provider mới `ml` (tên đề xuất) cho cả ba trường gợi ý, chạy trên CPU, ngoại tuyến, có phiên bản và nguồn gốc mô hình rõ ràng, thay thế `rule` làm mặc định **chỉ khi** đạt tiêu chí đánh giá do chủ dự án duyệt. `rule` và `noop` giữ làm phương án lùi.
-
-## 4. Hướng kỹ thuật (đề xuất, cần chốt sau đánh giá)
-
-Không chọn trước bằng suy đoán. So sánh trên cùng gold set:
-
-| Phương án | Ý tưởng | Ưu | Nhược |
+| | Rule-based | TF-IDF + tuyến tính | PhoBERT |
 | --- | --- | --- | --- |
-| A. Đầu phân loại trên embedding E5 sẵn có | Dùng vector 384 chiều đã có, huấn luyện đầu phân loại nhẹ (ví dụ hồi quy logistic) ngoại tuyến | Tái dùng model và hạ tầng đã có, tệp mô hình nhỏ, suy luận nhanh | Chất lượng phụ thuộc embedding, cần đủ dữ liệu cho từng lớp |
-| B. TF-IDF và mô hình tuyến tính | Cổ điển, dựa từ khóa và n-gram | Rất nhẹ, dễ giải thích, cần ít tài nguyên | Yếu với diễn đạt khác từ khóa, cần xử lý tiếng Việt |
-| C. Tinh chỉnh transformer | Tinh chỉnh một model nhỏ trên dữ liệu phiếu | Có thể chính xác nhất | Cần nhiều dữ liệu và tài nguyên huấn luyện, artifact lớn, suy luận chậm hơn |
+| Trạng thái | Đã có, làm mốc so sánh | Cần làm | Cần làm |
+| Cách làm | Từ khóa, rubric E0 | n-gram ký tự (2–5) và từ (1–2), hồi quy logistic hoặc LinearSVC; mỗi trường một mô hình | Tinh chỉnh `vinai/phobert-base-v2` với đầu phân loại cho từng trường (hoặc một mô hình ba đầu) |
+| Tiếng Việt không dấu, viết tắt | Phải liệt kê tay | n-gram ký tự chịu được khá tốt, không cần tách từ | Cần tách từ trước (PhoBERT huấn luyện trên văn bản đã tách từ); văn bản không dấu lệch phân phối pretrain |
+| Dữ liệu cần | Không | Vài trăm đến một nghìn mẫu là chạy được | Nhiều hơn để vượt TF-IDF rõ rệt |
+| Điểm tin cậy | Không có (`null`) | Hiệu chỉnh bằng `CalibratedClassifierCV` trên tập kiểm định | Hiệu chỉnh bằng temperature scaling trên tập kiểm định |
+| Chạy CPU | Tức thời | Vài mili giây, tệp mô hình vài MB | Khoảng 135 triệu tham số, tệp vài trăm MB; độ trễ phải đo |
+| Phụ thuộc mới | Không | `scikit-learn` | Bộ tách từ tiếng Việt (VnCoreNLP cần Java, hoặc thư viện Python); **kiểm tra giấy phép trước khi chọn** |
 
-Đề xuất bắt đầu bằng A và B làm cơ sở so sánh (chi phí thấp, chạy cục bộ), chỉ xét C nếu hai phương án đầu không đạt tiêu chí. Impact và Urgency có thể cần nhãn riêng; nếu chưa có nhãn đủ chất lượng thì giữ cách tính hiện có cho hai trường này và chỉ thay Category trước, ghi rõ trong tiêu chí đạt.
+Dự đoán trước (cần số liệu xác nhận): với dữ liệu ít, TF-IDF thường ngang hoặc hơn PhoBERT; PhoBERT có lợi khi phiếu diễn đạt đa dạng, không trùng từ khóa. Vì vậy làm TF-IDF trước, rồi PhoBERT, và **không chọn mô hình trước khi có số liệu**.
 
-## 5. Dữ liệu và gold set
+Phương án phụ, không bắt buộc: đầu phân loại hồi quy logistic trên embedding E5 đã có trong image. Chi phí thấp, có thể thêm vào bảng so sánh nếu còn thời gian.
 
-- Nguồn dữ liệu: phiếu lịch sử (chứa thông tin cá nhân) hay dữ liệu tổng hợp; **chưa chốt**. Dữ liệu có thông tin cá nhân phải ẩn danh hóa trước khi dùng, không đưa vào Git, và lưu nơi có kiểm soát truy cập.
-- Gold set tách khỏi tập huấn luyện và tập kiểm định, không dùng để tinh chỉnh; có phiên bản taxonomy, quy tắc gán nhãn, hai người duyệt và xử lý bất đồng.
-- Mọi lần đánh giá ghi: SHA mã, phiên bản dữ liệu, phiên bản mô hình, số mẫu từng lớp.
-- Nguồn nhãn rẻ nhất: cặp (danh mục người gửi chọn, danh mục nhân viên chốt) trên phiếu đã đóng. Backend chỉ giữ được cặp này khi thêm `RequesterCategoryId` (kế hoạch tích hợp AI của backend, mục 3.2.1); nhãn người gửi là nhãn yếu, không thay gold set.
+Mã huấn luyện đặt ở thư mục `training/` riêng, chạy ngoại tuyến, không nằm trong gói `supportflow_ai`. Mô hình được chọn mới vào `adapters/classifiers/` thành provider `ml`.
 
-### 5.1 Việc sửa rule baseline trước khi có mô hình (đối chiếu mã 2026-11-16)
+## 5. Dữ liệu tiếng Việt: lấy ở đâu
 
-- **Abstain thay vì đoán `OTHER`.** `RuleBasedClassifier` hiện trả `OTHER` khi không khớp từ khóa, với `score: null`. Giao diện sẽ hiện "AI gợi ý OTHER" cạnh danh mục người gửi đã chọn, và backend xếp `score: null` vào dải tin cậy rỗng, nên người duyệt không biết đó là giá trị mặc định. Hợp đồng v1 cho phép `suggestions: []` (không có `min_length`; backend chấp nhận danh sách rỗng). Khi đổi: chỉ trả `OTHER` cho từ khóa máy chủ rõ ràng ("server", "máy chủ", "may chu", "vps"; không dùng "database" vì trùng `SW`, `ACCESS`), và cập nhật `tests/unit/test_rule_based_classifier.py` đang kỳ vọng `OTHER`.
-- **Báo cáo abstain.** `run_classification` báo thêm `coverage` (tỷ lệ mẫu có dự đoán) và `selective_accuracy` (độ chính xác trên mẫu có dự đoán), giữ nguyên schema `sample-classification.jsonl`. Abstain trên mẫu `OTHER` mơ hồ (`s11`) tính vào coverage, không tính là sai nhãn.
-- **Tiếng Việt không dấu.** `_normalize` chỉ áp dụng NFKC và casefold, không bỏ dấu. Chỉ so khớp không dấu cho cụm nhiều từ; bỏ dấu từ đơn gây trùng nghĩa ("mạng" thành "mang", "máy" thành "may").
-- **Luật tạm cho Impact/Urgency (nếu làm trước mô hình):** chỉ dùng cụm hẹp ("cả phòng", "toàn công ty"; "ngừng làm việc", "không làm việc được") kèm bản không dấu, trả `score: null`, không khớp thì không thêm gợi ý. Ghi chú `shortcut:` trong mã vì sẽ thay bằng mô hình.
+Không có bộ phiếu IT tiếng Việt công khai, có gán nhãn và giấy phép rõ ràng mà dự án dựa vào được. Đề xuất theo thứ tự ưu tiên:
 
-## 6. Đóng gói và vận hành
+| Nguồn | Vai trò | Ghi chú |
+| --- | --- | --- |
+| A. Nhóm tự viết theo **thẻ kịch bản** | Nguồn chính cho huấn luyện và gold set | Mỗi thẻ: danh mục, Impact, Urgency, tình huống (ví dụ "cả phòng kế toán mất VPN, sáng nay nộp báo cáo"). Nhiều người viết, bắt buộc đa dạng: có dấu, không dấu, viết tắt ("k vào đc"), xen tiếng Anh, câu cụt, phiếu mơ hồ |
+| B. Phiếu từ hệ thống demo và buổi thử người dùng | Bổ sung, sát thực tế hơn | Nhãn = danh mục người duyệt chốt; ẩn danh hóa trước khi dùng |
+| C. Nhãn yếu từ phiếu đã đóng | Về lâu dài | Cặp (danh mục người gửi chọn, danh mục nhân viên chốt). Backend cần thêm `RequesterCategoryId`. Không thay gold set |
+| D. Phỏng theo bộ dữ liệu ticket công khai tiếng Anh | Chỉ để tham khảo tình huống | Phải kiểm giấy phép. Không dịch bằng API bên ngoài nếu chủ dự án chưa cho phép **[cần duyệt]** |
 
-- Artifact mô hình có tên, phiên bản và SHA-256, ghim như profile embedding hiện nay; **tải lúc build, không tải lúc chạy**, không dùng `trust_remote_code`.
-- Image: giữ ranh giới hiện nay (phụ thuộc ML nặng chỉ ở stage `embeddings` hoặc một stage tương tự cho mô hình phân loại); không đưa vào `requirements-runtime.lock` mặc định.
-- Cấu hình: `SUPPORTFLOW_AI_CLASSIFIER_PROVIDER=ml` (và thư mục mô hình do cấu hình, tên biến chốt khi viết mã); lỗi tải mô hình thì `/health/ready` trả 503, không giả lập dự đoán.
-- Hiệu năng: backend hiện đặt thời gian chờ mặc định 5 giây (cấu hình 1 đến 30). Đặt mục tiêu độ trễ suy luận trên CPU cùng tiêu chí đạt; chưa có số đo nên chưa ghi con số.
-- Nhật ký: không ghi `title`, `description` hay vector; phiên bản mô hình có thể ghi ở `/health/ready` hoặc nhật ký khởi động (không đổi hợp đồng v1 khi chưa có thỏa thuận với backend).
+Quy mô đề xuất **[cần duyệt]**:
 
-## 7. Kiểm thử và tiêu chí đạt
+- Huấn luyện và kiểm định: khoảng 100–150 mẫu mỗi danh mục (khoảng 1.100–1.650 mẫu), tỷ lệ 80/20.
+- Gold set: ít nhất 30 mẫu mỗi danh mục (khoảng 330 mẫu), **do người khác viết và từ thẻ kịch bản khác** so với tập huấn luyện. Không dùng để chọn siêu tham số.
+- Chia theo nhóm (người viết, thẻ kịch bản), không chia ngẫu nhiên từng câu, và loại câu gần trùng giữa các tập. Nếu không làm vậy, điểm số sẽ cao giả.
 
-- Đơn vị: tính xác định (cùng đầu vào cùng đầu ra, sai số số thực có kiểm soát), từ chối đầu vào ngoài miền, điểm trong khoảng hợp lệ.
-- Hợp đồng và tích hợp: giữ nguyên kiểm thử hợp đồng v1; thêm ca cho provider `ml` qua HTTP trong container (tương tự bước xác minh HTTP hiện có).
-- Đánh giá: báo cáo Accuracy, Macro-F1, F1 từng lớp, ma trận nhầm lẫn và **độ hiệu chỉnh** của điểm trên gold set; ngưỡng đạt do chủ dự án duyệt trước khi chạy (không chọn ngưỡng sau khi thấy kết quả).
-- Kiểm thử kiến trúc: route không gọi thư viện mô hình trực tiếp (`test_architecture_boundaries`).
+Gán nhãn theo [DATASET.md](../evaluation/DATASET.md): taxonomy có phiên bản, hai người gán độc lập, báo độ đồng thuận (Cohen's kappa), người thứ ba phân xử bất đồng.
+
+Rubric Impact/Urgency cho gán nhãn, bản nháp mở rộng từ E0 **[cần duyệt]**:
+
+| Mức | Impact (phạm vi ảnh hưởng) | Urgency (mức gấp) |
+| --- | --- | --- |
+| High | Phòng ban, toàn công ty hoặc dịch vụ dùng chung (mail, VPN, server) | Bị chặn làm việc **và** (hạn trong ngày hoặc liên quan an toàn thông tin) |
+| Medium | Một nhóm vài người | Bị chặn nhưng chưa có hạn gấp, hoặc vẫn làm việc được với chất lượng giảm |
+| Low | Một người | Yêu cầu, hỏi đáp, không chặn công việc |
+
+Dữ liệu tự viết không chứa thông tin cá nhân thật nên được lưu trong Git (`evaluation/data/`, có phiên bản). Dữ liệu từ nguồn B và C phải ẩn danh hóa, không đưa vào Git.
+
+## 6. Đánh giá và tiêu chí chọn
+
+Chạy cả ba phương án qua cùng bộ đánh giá (`evaluation/`), mỗi báo cáo ghi SHA mã, phiên bản dữ liệu và phiên bản mô hình.
+
+| Chỉ số | Áp dụng | Lý do |
+| --- | --- | --- |
+| Macro-F1, F1 từng lớp, ma trận nhầm lẫn | Category, Impact, Urgency | Chỉ số chính; theo DATASET.md |
+| Tỷ lệ lỗi định tuyến | Category | Nhầm giữa hai danh mục thuộc hai `SupportTeam` khác nhau theo `RoutingRule` của Backend. Nhầm trong cùng nhóm ít hại hơn |
+| Recall mức High | Impact, Urgency | Bỏ sót phiếu khẩn đắt hơn báo nhầm |
+| Khớp Priority | Impact + Urgency | Tính P1–P4 từ gợi ý và từ nhãn qua ma trận; báo tỷ lệ khớp đúng và lệch một mức |
+| `coverage`, `selectiveAccuracy` theo ngưỡng | Cả ba trường | Chọn ngưỡng abstain trên tập kiểm định |
+| Độ hiệu chỉnh (ECE, biểu đồ tin cậy) | Mô hình có điểm | Để dải 0,4/0,75 của Backend có nghĩa |
+| Độ trễ p95 trên CPU, dung lượng mô hình, RAM | Cả ba | "Hiệu năng thực tế" theo yêu cầu |
+
+Tiêu chí chọn, phải chốt **trước** khi chạy trên gold set **[cần duyệt]**:
+
+1. Ưu tiên Macro-F1 Category trên gold set; cùng với đó tỷ lệ lỗi định tuyến không cao hơn mô hình kế tiếp.
+2. Nếu hai phương án chênh nhau dưới 0,02 Macro-F1 thì chọn phương án nhẹ hơn.
+3. Độ trễ p95 dưới 300 ms trên CPU của máy chạy Compose (Backend chờ tối đa 5 giây mặc định).
+4. Mô hình mới chỉ thay `rule` khi vượt `rule` trên gold set. Impact/Urgency có thể giữ rubric E0 nếu mô hình chưa vượt được.
+
+## 7. Đưa mô hình vào dịch vụ
+
+- Provider `ml` trong `adapters/classifiers/`, đăng ký ở `bootstrap.py`, chọn bằng `SUPPORTFLOW_AI_CLASSIFIER_PROVIDER=ml`. `rule` và `noop` giữ làm phương án lùi.
+- Artifact có tên, phiên bản, SHA-256; tải lúc build, chạy ngoại tuyến, không `trust_remote_code`. Phụ thuộc ML chỉ ở stage riêng của Dockerfile như stage `embeddings`, không vào `requirements-runtime.lock`.
+- Trả điểm đã hiệu chỉnh. Dưới ngưỡng abstain thì bỏ trường đó khỏi `suggestions` thay vì đoán.
+- Lỗi tải mô hình thì `/health/ready` trả 503. Không ghi log `title`, `description`.
+- Kiểm thử: tính xác định, điểm trong [0, 1], hợp đồng v1 qua HTTP trong container, `test_architecture_boundaries`.
 
 ## 8. Lộ trình
 
-| Giai đoạn | Nội dung | Điều kiện xong |
+| Giai đoạn | Việc | Xong khi |
 | --- | --- | --- |
-| 0 | Chốt nguồn dữ liệu, taxonomy, tiêu chí đạt và ngưỡng, người duyệt gold set | Chủ dự án duyệt |
-| 1 | Xây gold set và tập huấn luyện/kiểm định theo DATASET.md | Gold set có phiên bản |
-| 2 | So sánh phương án A và B bằng bộ đánh giá hiện có | Báo cáo đánh giá có SHA |
-| 3 | Adapter `ml`, đóng gói artifact, health, kiểm thử | CI và build image đạt |
-| 4 | Chạy bóng cùng backend (so sánh `ml` với `rule`, chưa hiển thị cho người dùng) | Báo cáo chênh lệch |
-| 5 | Bật `ml` theo môi trường qua cấu hình | Tiêu chí đạt đã duyệt; có phương án lùi về `rule` |
+| 0 | Merge PR #18. Duyệt các mục **[cần duyệt]**: nguồn dữ liệu, quy mô, rubric, tiêu chí chọn | Có biên bản duyệt |
+| 1 | Viết thẻ kịch bản, hướng dẫn gán nhãn; nhóm viết và gán nhãn; tách gold set | Dữ liệu có phiên bản, báo kappa |
+| 2 | Mở rộng `evaluation/` với các chỉ số mục 6 (lỗi định tuyến, khớp Priority, ECE, độ trễ); chạy lại Rule-based làm mốc | Báo cáo mốc có SHA |
+| 3 | Huấn luyện TF-IDF + tuyến tính, hiệu chỉnh điểm, báo cáo | Báo cáo có SHA |
+| 4 | Tinh chỉnh PhoBERT (sau khi chốt bộ tách từ và giấy phép), hiệu chỉnh, đo độ trễ CPU | Báo cáo có SHA |
+| 5 | Bảng so sánh ba phương án, chọn theo tiêu chí đã duyệt | Chủ dự án ký chọn |
+| 6 | Provider `ml`, đóng gói, CI, build image | CI và kiểm chứng HTTP trong container đạt |
+| 7 | Chạy bóng với Backend (so `ml` với `rule`, chưa hiện cho người dùng), rồi bật theo môi trường | Báo cáo chênh lệch; có đường lùi về `rule` |
 
-Phụ thuộc: backend (`ai-integration-plan.md` bước 5 đến 7) để lưu và duyệt gợi ý; infra để có chỗ lưu artifact và cache mô hình trong image.
+Phụ thuộc: Backend lưu và hiển thị gợi ý cho cả ba trường, cung cấp bảng `RoutingRule` để đo lỗi định tuyến, thêm `RequesterCategoryId` cho nguồn C. Infra cấp chỗ lưu artifact mô hình.
 
-## 9. Tài liệu phải cập nhật khi triển khai
+## 9. Quyết định còn mở
 
-[architecture.md](architecture.md) (mục Provider evolution đã bỏ bước "external LLM adapter" theo quyết định này), [DATASET.md](../evaluation/DATASET.md), [AGENTS.md](../AGENTS.md), README (bảng trạng thái, chỉ sau khi mô hình thật vào `main`), [cẩm nang chung](team-handbook.md) (bốn kho cùng lúc).
+1. Quy mô dữ liệu, ai viết, ai gán nhãn, ai phân xử (mục 5).
+2. Có cho phép dịch hoặc sinh dữ liệu bằng công cụ bên ngoài **khi chuẩn bị dữ liệu** (không phải lúc chạy dịch vụ) hay không.
+3. Rubric Impact/Urgency mức Low/Medium (mục 5).
+4. Tiêu chí chọn và ngưỡng (mục 6).
+5. Bộ tách từ cho PhoBERT và giấy phép của nó; có chấp nhận phụ thuộc Java trong image hay không.
+6. Nơi lưu artifact mô hình (trong image hay volume do infra cấp).
 
-## 10. Quyết định còn mở
+## 10. Tài liệu phải cập nhật khi triển khai
 
-1. Nguồn dữ liệu huấn luyện và cách ẩn danh hóa.
-2. Tiêu chí đạt và ngưỡng (Accuracy, Macro-F1, độ hiệu chỉnh, độ trễ).
-3. Có thay Impact và Urgency bằng mô hình ngay hay chỉ Category.
-4. Ai duyệt gold set và ai ký tiêu chí đạt.
-5. Nơi lưu artifact mô hình (trong image hay volume do hạ tầng cấp) và quy trình cập nhật.
+[architecture.md](architecture.md), [DATASET.md](../evaluation/DATASET.md), [AGENTS.md](../AGENTS.md), README (bảng trạng thái, chỉ khi mô hình thật đã vào `main`), [cẩm nang chung](team-handbook.md).
