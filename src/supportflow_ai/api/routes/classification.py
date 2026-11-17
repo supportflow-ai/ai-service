@@ -63,6 +63,8 @@ async def classify_ticket(
         extra={
             "request_id": str(result.request_id),
             "ticket_id": str(result.ticket_id),
+            "provider": result.provider,
+            "model_version": result.model_version,
             "duration_ms": round((perf_counter() - started) * 1000, 2),
             "outcome": "success",
         },
