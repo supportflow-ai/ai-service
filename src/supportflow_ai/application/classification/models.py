@@ -23,3 +23,6 @@ class ClassificationResult:
     ticket_revision: int
     input_hash: str
     prediction: ClassificationPrediction
+    # Truy vết (chỉ ghi log), không thuộc body hợp đồng v1.
+    provider: str
+    model_version: str | None = None
