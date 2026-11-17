@@ -61,9 +61,10 @@ Xem `docs/architecture.md`.
 | FastAPI classification endpoint | Có |
 | Service Bearer auth | Có |
 | NoOp provider / controlled 503 | Có |
-| Rule-based baseline | Có, chỉ gợi ý Category; không khớp từ khóa thì trả `OTHER` |
-| Gợi ý Impact/Urgency | Chưa có (hợp đồng v1 cho phép, rule baseline chưa sinh) |
-| Abstain, tín hiệu giải thích | Chưa có |
+| Rule-based baseline | Có: Category theo từ khóa; Impact/Urgency chỉ ở mức `High` theo rubric E0; không khớp từ khóa thì không gợi ý; từ khóa máy chủ/hạ tầng trả `OTHER` |
+| Gợi ý Impact/Urgency | Một phần: rule baseline chỉ sinh mức `High` theo rubric E0; chưa có mô hình |
+| Abstain | Có ở rule baseline (`suggestions: []` khi thiếu tín hiệu); đánh giá báo `coverage`, `selectiveAccuracy` |
+| Tín hiệu giải thích | Chưa có |
 | Che dữ liệu cá nhân (PII) cho dữ liệu huấn luyện | Chưa có |
 | Model phân loại học máy | Chưa chọn (dùng rule baseline) |
 | Embedding CPU E5 và chuẩn bị chỉ mục Knowledge | Có (`POST /v1/knowledge-indexes:prepare`, `GET /health/embedding`); backend chưa tiêu thụ |
