@@ -48,7 +48,8 @@ _DEADLINE_TODAY = (
     "hôm nay",
     "hom nay",
 )
-_DEADLINE_SOON = ("gấp", "gap", "khẩn", "khan")
+# Không dùng bản không dấu "gap"/"khan": trùng "gặp" ("gap loi") khi người dùng gõ không dấu.
+_DEADLINE_SOON = ("gấp", "khẩn")
 _SENSITIVE_SECURITY = (
     "mã độc",
     "ma doc",

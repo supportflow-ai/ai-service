@@ -53,6 +53,10 @@ def test_blocked_without_deadline_or_sensitive_gives_no_urgency():
     assert SuggestionField.URGENCY not in _fields("Không truy cập được hệ thống từ hôm qua")
 
 
+def test_unaccented_gap_meaning_encounter_does_not_give_urgency():
+    assert SuggestionField.URGENCY not in _fields("Em gap loi, khong vao duoc mail")
+
+
 def test_sensitive_without_blocked_gives_no_urgency():
     assert SuggestionField.URGENCY not in _fields("Nghi lộ tài khoản qua email lạ")
 
