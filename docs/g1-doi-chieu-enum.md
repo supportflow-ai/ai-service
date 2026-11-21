@@ -32,5 +32,5 @@ Ma trận này khớp sơ đồ ITIL ghi trong chính file `PriorityMatrix.cs`. 
 
 ## Chưa quyết
 
-- Rubric Impact/Urgency cho AI (mô tả mức độ, tín hiệu, ca mơ hồ) chưa được chủ dự án duyệt. Cho đến khi duyệt, ai-service không gợi ý Impact/Urgency.
+- Rubric E0 (chỉ hai quy tắc mức `High`, theo tài liệu kiến trúc v3.0 mục 9.2 và 9.4) được chấp nhận ngày 16/11/2026; rule baseline phát gợi ý `High` theo rubric này và bỏ trống khi thiếu tín hiệu. Mô tả mức `Low`/`Medium` và ca mơ hồ cho gán nhãn dữ liệu vẫn chưa duyệt.
 - Bảng này không xác nhận việc gán nhãn hay chất lượng mô hình; chỉ xác nhận taxonomy đầu ra.

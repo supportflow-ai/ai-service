@@ -10,13 +10,13 @@ Tại mốc 21/11, Backend `dev@3640c33` chưa có hợp đồng nguồn, migrat
 
 ## Hiện trạng
 
-AI Service `b35f08b` có hai API nội bộ qua Bearer dịch vụ. `POST /v1/ticket-classifications` dùng OpenAPI phân loại v1. `POST /v1/knowledge-indexes:prepare` dùng hợp đồng Knowledge riêng. `rule` là provider luật hiện có. `noop` là mặc định và trả `503` ở readiness phân loại. `local-e5` thuộc cấu hình embedding, chạy E5 cục bộ trên CPU trong image stage `embeddings`.
+AI Service `main@207d26d` có hai API nội bộ qua Bearer dịch vụ. `POST /v1/ticket-classifications` dùng OpenAPI phân loại v1. `POST /v1/knowledge-indexes:prepare` dùng hợp đồng Knowledge riêng. `rule` là provider luật hiện có. `noop` là mặc định và trả `503` ở readiness phân loại. `local-e5` thuộc cấu hình embedding, chạy E5 cục bộ trên CPU trong image stage `embeddings`.
 
 Docker cài runtime theo phiên bản ghim trong `requirements-runtime.lock`. Dependency kiểm
 thử nằm trong `pyproject.toml`. Production yêu cầu token dịch vụ riêng. Schema v1 kiểm tra
 chặt kiểu của `ticketRevision` ở cả request và response.
 
-Chỉ mục tài liệu rà ngày 21/11/2026 tại AI Service `b35f08b` và Backend `dev@3640c33`.
+Chỉ mục tài liệu rà ngày 21/11/2026 tại AI Service `main@207d26d`. Các mốc Backend trong tài liệu đối chiếu ghi theo lần đọc tương ứng.
 
 - Tích hợp phân loại theo [đối chiếu Backend–AI](docs/backend-alignment.md), [bản ghim v1](contract.lock.json) và [kiến trúc AI Service](docs/architecture.md).
 - Chuẩn bị thực nghiệm theo [kế hoạch classifier](docs/ml-classifier-plan.md), [đặc tả dữ liệu đánh giá](evaluation/DATASET.md) và bộ TL01–TL06 trong `docs/audit/2026-11-21/chuan-hoa-tai-lieu-ai-service.md` của workspace liên kho.
@@ -61,9 +61,9 @@ Xem `docs/architecture.md`.
 | FastAPI classification endpoint | Có |
 | Service Bearer auth | Có |
 | NoOp provider / controlled 503 | Có |
-| Rule-based baseline | Có, chỉ gợi ý Category; không khớp từ khóa thì trả `OTHER` |
-| Gợi ý Impact/Urgency | Chưa có (hợp đồng v1 cho phép, rule baseline chưa sinh) |
-| Không có gợi ý | Hợp đồng v1 cho phép `suggestions: []`. `rule` hiện trả một Category, dùng `OTHER` khi không khớp |
+| Rule-based baseline | Category theo từ khóa, gồm `OTHER` cho từ khóa máy chủ/hạ tầng. Rubric E0 có thể gợi ý Impact/Urgency ở mức `High` |
+| Không có gợi ý | Bỏ trường thiếu tín hiệu. Trả `suggestions: []` khi không có tín hiệu ở cả ba trường |
+| Tín hiệu giải thích | Chưa có |
 | Che dữ liệu cá nhân (PII) cho dữ liệu huấn luyện | Chưa có |
 | Model phân loại học máy | Chưa chọn (dùng rule baseline) |
 | Embedding CPU E5 và chuẩn bị chỉ mục Knowledge | Có (`POST /v1/knowledge-indexes:prepare`, `GET /health/embedding`); backend chưa tiêu thụ |
@@ -138,7 +138,7 @@ Header:
 Authorization: Bearer <SUPPORTFLOW_AI_SERVICE_TOKEN>
 ```
 
-Backend tính `inputHash` từ tiêu đề và mô tả. Nếu đổi nội dung, dùng hash do Backend tính lại. Phản hồi trả lại `requestId`, `ticketId`, `ticketRevision` và `inputHash`. `suggestions` chứa tối đa một phần tử `field/value/score` cho mỗi trường. `rule` trả Category với `score: null`. [Ranh giới hợp đồng và bảng readiness](docs/architecture.md#contract-boundary)
+Backend tính `inputHash` từ tiêu đề và mô tả. Nếu đổi nội dung, dùng hash do Backend tính lại. Phản hồi trả lại `requestId`, `ticketId`, `ticketRevision` và `inputHash`. `suggestions` chứa tối đa một phần tử `field/value/score` cho mỗi trường. Gợi ý từ `rule` dùng `score: null`. Nếu thiếu tín hiệu ở mọi trường, phản hồi có mảng gợi ý rỗng. [Ranh giới hợp đồng và bảng readiness](docs/architecture.md#contract-boundary)
 
 ## Kiểm thử
 

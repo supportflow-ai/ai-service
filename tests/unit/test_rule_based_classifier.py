@@ -12,7 +12,7 @@ from supportflow_ai.domain.classification import Category, SuggestionField
         ("Outlook lỗi", "Không gửi được email", Category.MAIL),
         ("Máy in", "Printer không in được", Category.PRINT),
         ("Nghi phishing", "Người dùng vừa bấm link phishing", Category.SEC),
-        ("Không rõ", "Yêu cầu chưa có từ khóa phân loại", Category.OTHER),
+        ("Server sập", "Máy chủ nội bộ không truy cập được", Category.OTHER),
     ],
 )
 @pytest.mark.asyncio
@@ -36,9 +36,16 @@ async def test_security_indicator_takes_precedence_over_other_baseline_keywords(
     assert prediction.suggestions[0].value == Category.SEC
 
 
+@pytest.mark.parametrize(
+    ("title", "description"),
+    [
+        ("Plan review", "Please review the planned update"),
+        ("Không rõ", "Yêu cầu chưa có từ khóa phân loại"),
+        ("Máy chuyển tiếp", "Dữ liệu được máy chuyển tiếp sang bộ phận khác"),
+    ],
+)
 @pytest.mark.asyncio
-async def test_word_fragment_lan_does_not_trigger_network_category():
-    prediction = await RuleBasedClassifier().classify(
-        title="Plan review", description="Please review the planned update",
-    )
-    assert prediction.suggestions[0].value == Category.OTHER
+async def test_no_keyword_match_abstains_instead_of_guessing_other(title, description):
+    prediction = await RuleBasedClassifier().classify(title=title, description=description)
+
+    assert prediction.suggestions == ()

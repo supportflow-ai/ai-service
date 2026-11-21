@@ -2,7 +2,7 @@
 
 ## Mục tiêu
 
-`ai-service` xử lý suy luận không trạng thái. Mốc đối chiếu ngày 21/11/2026 gồm AI Service `b35f08b`, Backend `dev@3640c33` và Web `dev@89eabc4`. Backend sở hữu dữ liệu và quyền nghiệp vụ.
+`ai-service` xử lý suy luận không trạng thái. Mốc đối chiếu ngày 21/11/2026 gồm AI Service `main@207d26d`, Backend `dev@3640c33` và Web `dev@89eabc4`. Backend sở hữu dữ liệu và quyền nghiệp vụ.
 
 Backend ASP.NET Core vẫn là system of record và sở hữu:
 
@@ -42,7 +42,7 @@ POST /v1/knowledge-indexes:prepare
 
 `POST /v1/ticket-classifications` dùng bản ghim của hợp đồng Backend. `requestId` và `ticketId` là UUID, `ticketRevision` là số nguyên không âm, `inputHash` gồm 64 chữ số hex thường. Backend tính hash từ tiêu đề và mô tả. AI Service kiểm định dạng rồi trả lại hash cùng các trường tương quan còn lại. Backend kiểm bốn giá trị khi nhận phản hồi.
 
-`suggestions` là mảng phần tử `field/value/score` và có tối đa một gợi ý cho mỗi `category`, `impact`, `urgency`. Mảng rỗng thể hiện không có gợi ý. Điểm là số hữu hạn trong [0, 1] hoặc `null`. `rule` chỉ trả một Category với điểm `null`, dùng `OTHER` khi không thấy từ khóa phù hợp. Mức ưu tiên và điều phối thuộc Backend. [OpenAPI và fixture v1](../contracts/ai/v1/README.md)
+`suggestions` là mảng phần tử `field/value/score` và có tối đa một gợi ý cho mỗi `category`, `impact`, `urgency`. Mảng rỗng thể hiện không có gợi ý. Điểm là số hữu hạn trong [0, 1] hoặc `null`. Provider `rule` gợi ý Category theo từ khóa, gồm `OTHER` cho ca khớp từ khóa máy chủ/hạ tầng. Rubric E0 có thể gợi ý `High` cho Impact/Urgency. Bỏ trường thiếu tín hiệu và trả mảng rỗng nếu không có gợi ý. Điểm của gợi ý theo luật là `null`. Mức ưu tiên và điều phối thuộc Backend. [OpenAPI và fixture v1](../contracts/ai/v1/README.md)
 
 Xác thực mặc định bật. Chỉ cấu hình `development` và `test` cho phép tắt. Request body được giới hạn ở tầng ASGI, mặc định 64 KiB cho phân loại và cố định 1 MiB cho prepare. [Cấu hình](../src/supportflow_ai/config.py) · [Giới hạn request](../src/supportflow_ai/api/middleware.py)
 

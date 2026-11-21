@@ -2,7 +2,7 @@
 
 Định hướng thực nghiệm và tích hợp. Các mục **[cần duyệt]** là đề xuất. Kết quả mô hình trên tập đánh giá tiếng Việt hiện **CHƯA ĐO**.
 
-Đối chiếu ngày 21/11/2026 tại AI Service `b35f08b`, Backend `3640c33`, Web `89eabc4` và Infra `df08561`. Xem [kiến trúc hiện trạng](architecture.md), [đối chiếu Backend](backend-alignment.md), [ma trận Priority](g1-doi-chieu-enum.md) và [quy ước dữ liệu](../evaluation/DATASET.md).
+Đối chiếu ngày 21/11/2026 tại AI Service `main@207d26d`, Backend `3640c33`, Web `89eabc4` và Infra `df08561`. Xem [kiến trúc hiện trạng](architecture.md), [đối chiếu Backend](backend-alignment.md), [ma trận Priority](g1-doi-chieu-enum.md) và [quy ước dữ liệu](../evaluation/DATASET.md).
 
 ## 0. Tóm tắt
 
@@ -50,7 +50,7 @@ Luồng Ticketing gọi adapter chưa có. Thời điểm gọi chờ AI-03.
 
 | Bước trong luồng | Hiện trạng | Kho |
 | --- | --- | --- |
-| AI trả gợi ý theo hợp đồng v1 | `rule` luôn trả một Category với `score: null`, dùng `OTHER` khi không khớp. `noop` trả 503. E0 chỉ đo Category | ai-service |
+| AI trả gợi ý theo hợp đồng v1 | `rule` trả Category theo từ khóa và có thể gợi ý Impact/Urgency `High`. Bỏ trường thiếu tín hiệu. `noop` trả 503 | ai-service |
 | Adapter gọi AI | **Có**: `HttpTicketClassificationService`, ngắt mạch `ClassificationCircuit` (3 lỗi liên tiếp → mở 30 s), timeout 5 s (1–30) | backend |
 | Gọi AI trong luồng phiếu | Chưa có caller Ticketing. Nhân viên yêu cầu phân tích sau khi lưu và chạy nền là hai phương án `AI-03` | backend |
 | Lưu `AIAnalysis`/`AISuggestion` | **Chưa**: có domain, chưa có bảng, migration hay `DbSet` | backend |
@@ -135,7 +135,7 @@ Nguyên tắc:
 | --- | --- | --- |
 | Thứ tự công việc | Tuần tự: dữ liệu → so sánh → adapter → chạy bóng → bật | Ba luồng song song: tích hợp đầu cuối bằng `rule`, dữ liệu, mô hình (mục 9) |
 | Phương án mô hình | Đầu phân loại trên E5, TF-IDF, tinh chỉnh transformer | Theo đề xuất của giảng viên: Rule-based, TF-IDF + tuyến tính, PhoBERT. Đầu phân loại trên E5 là phương án phụ |
-| Impact/Urgency | "Có thể giữ cách tính hiện có" | E0 hiện chỉ đo Category. Nếu `AI-05` duyệt rubric thì thử Impact/Urgency riêng |
+| Impact/Urgency | "Có thể giữ cách tính hiện có" | Đo Category và rubric mức `High` của E0 riêng. Chốt tiêu chí cho Impact/Urgency theo `AI-05` |
 | Truy vết mô hình | Không có | Header phiên bản và cột lưu ở Backend (mục 4.3) |
 | Hiệu năng | Chưa nói tới event loop | Suy luận trong thread, giới hạn song song (K1) |
 | Điều kiện bàn giao | Chưa nêu | Mốc M1–M5 theo `AI-02` (mục 9) |
@@ -250,7 +250,7 @@ Mỗi báo cáo ghi SHA mã, digest manifest dữ liệu/split, guideline, phiê
 1. Fit vectorizer và mô hình trên train. So Logistic Regression và LinearSVC trên validation theo nhóm. Fit hiệu chuẩn và chọn ngưỡng trên các phần development đã dành trước hoặc bằng dự đoán out-of-fold theo nhóm. Chỉ xuất score khi estimator và phương pháp hiệu chuẩn đã được kiểm.
 2. Trên development, dùng E0 làm mốc Category. Cổng `AI-07` cần chốt chất lượng tối thiểu, recall `SEC`, quan hệ coverage–risk và ngân sách p95/RSS. Các số dự kiến phải do nhóm duyệt. E2 áp dụng điều kiện ở mục 5.
 3. Khóa ứng viên đã chọn, preprocess, hiệu chuẩn, ngưỡng và tiêu chí trước khi mở test/challenge. Chạy E0 và ứng viên đã khóa trên cùng test để xác nhận. Nếu hụt cổng, ghi kết quả và dùng tập đánh giá độc lập chưa mở cho ứng viên mới.
-4. Rubric Impact/Urgency, nếu đã duyệt theo `AI-05`, có kết quả riêng. E0 chỉ dùng cho Category. Việc bật mô hình trên ứng viên nghiệm thu còn cần bằng chứng đầu cuối theo `AI-02`.
+4. Báo chỉ số Category và rubric Impact/Urgency của E0 riêng khi thử theo `AI-05`. Việc bật mô hình trên ứng viên nghiệm thu còn cần bằng chứng đầu cuối theo `AI-02`.
 
 | Tập đánh giá tiếng Việt | Macro-F1 và chỉ số theo lớp | Recall SEC và coverage–risk | p95/RSS trên máy đích |
 | --- | --- | --- | --- |

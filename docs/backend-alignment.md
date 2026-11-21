@@ -2,11 +2,11 @@
 
 ## Mốc đối chiếu ngày 21/11/2026
 
-AI Service `b35f08b`, Backend `dev@3640c33`, Web `dev@89eabc4` và Infra `df08561`. Mốc Backend cũng đã được đọc ngày 16/11/2026. Mốc mã dùng để đối chiếu, còn kết quả nghiệm thu gắn với cấu hình ứng viên.
+AI Service `main@207d26d`, Backend `dev@3640c33`, Web `dev@89eabc4` và Infra `df08561`. Mốc Backend cũng đã được đọc ngày 16/11/2026. Mốc mã dùng để đối chiếu, còn kết quả nghiệm thu gắn với cấu hình ứng viên.
 
 | Luồng | Hiện có trong mã | Quyết định hoặc việc còn chờ |
 | --- | --- | --- |
-| Phân loại phiếu | `POST /v1/ticket-classifications` qua Bearer nội bộ. `rule` trả một Category với `score: null`, mặc định `OTHER` khi không khớp. `noop` trả `503` ở readiness và khi gọi phân loại. Backend có adapter chọn theo `Ai:Enabled`. Web có panel khung với `result={null}` | `AI-02` chốt mô hình học máy cục bộ có người duyệt cùng Identity và Ticketing. Còn thiếu model, caller Ticketing và luồng lưu/duyệt. Tác vụ nền và yêu cầu thủ công sau lưu là hai phương án `AI-03`. Quyền xem và cách biểu diễn triage chờ `AI-01` và `DEC-09` |
+| Phân loại phiếu | `POST /v1/ticket-classifications` qua Bearer nội bộ. `rule` gợi ý Category theo từ khóa và có thể gợi ý `High` cho Impact/Urgency theo rubric E0. Bỏ trường thiếu tín hiệu. `OTHER` dùng cho ca khớp từ khóa hạ tầng. `noop` trả `503` ở readiness và khi gọi phân loại. Backend có adapter chọn theo `Ai:Enabled`. Web có panel khung với `result={null}` | `AI-02` chốt mô hình học máy cục bộ có người duyệt cùng Identity và Ticketing. Còn thiếu model, caller Ticketing và luồng lưu/duyệt. Tác vụ nền và yêu cầu thủ công sau lưu là hai phương án `AI-03`. Quyền xem và cách biểu diễn triage chờ `AI-01` và `DEC-09` |
 | Chuẩn bị chỉ mục | `POST /v1/knowledge-indexes:prepare` nhận snapshot qua Bearer nội bộ. AI Service có `local-e5` và hợp đồng Knowledge riêng. `/health/embedding` kiểm readiness của bộ prepare | Backend sẽ tiêu thụ theo quyết định ngày 13/11. `AI-09` xác định mốc. Chưa có consumer, migration, job, lưu vector hay mốc nguồn cho hợp đồng Knowledge ở Backend |
 | Sử dụng Knowledge | Backend/Web có bài viết và tìm kiếm từ khóa | Phạm vi phát hành xét riêng. Truy hồi ngữ nghĩa và RAG thuộc mốc sau phân loại |
 
@@ -16,7 +16,7 @@ Backend sở hữu thời hạn chờ, thử lại, ngắt mạch, Priority và 
 
 ### Đối chiếu phản hồi HTTP phân loại
 
-| Mã HTTP | Bản OpenAPI v1 đã ghim | Runtime ở AI Service `b35f08b` |
+| Mã HTTP | Bản OpenAPI v1 đã ghim | Runtime ở AI Service `main@207d26d` |
 | --- | --- | --- |
 | `401` | Có phản hồi xác thực dịch vụ | Route kiểm Bearer và từ chối thông tin xác thực thiếu hoặc sai |
 | `413` | Chưa khai báo cho route phân loại | Middleware giới hạn payload và trả `detail.code=payload_too_large` |
