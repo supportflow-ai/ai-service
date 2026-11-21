@@ -183,6 +183,15 @@ class RuleBasedClassifier:
     def name(self) -> str:
         return "rule"
 
+    @property
+    def ready(self) -> bool:
+        return True
+
+    @property
+    def model_version(self) -> str | None:
+        # Không có artifact; phiên bản của rule là SHA mã nguồn.
+        return None
+
     async def classify(self, *, title: str, description: str) -> ClassificationPrediction:
         text = _normalize(f"{title}\n{description}")
         severity = infer_severity(text)

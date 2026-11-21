@@ -1,7 +1,7 @@
 # Định hướng và kế hoạch AI Service
 
 Trạng thái: định hướng đề xuất, chờ chủ dự án và giảng viên hướng dẫn duyệt các mục đánh dấu **[cần duyệt]**.
-Cập nhật 2026-11-17. Đối chiếu mã: ai-service `main@751c8a8` cộng PR #18 (đưa #13, #14 vào `main`); backend `dev@3640c33`; web `dev@89eabc4`; infra `main`.
+Cập nhật 2026-11-17. Đối chiếu mã: ai-service `main` = `dev` @ `207d26d` (đã gồm PR #18, #19); backend `dev@3640c33`; web `dev@89eabc4`; infra `main@df08561`. Tiến độ triển khai và phát hiện mới: mục 13.
 Tài liệu liên quan: [architecture.md](architecture.md), [g1-doi-chieu-enum.md](g1-doi-chieu-enum.md), [DATASET.md](../evaluation/DATASET.md); phía backend: `docs/architecture/ai-integration-plan.md`, ADR-012, ADR-016.
 
 ## 0. Tóm tắt
@@ -84,7 +84,7 @@ bootstrap.py, main.py: ghép provider theo cấu hình
 
 | # | Vấn đề (vị trí) | Hệ quả | Việc làm | Mức |
 | --- | --- | --- | --- | --- |
-| K1 | `TicketClassifier.classify` là `async`, nhưng suy luận ML tốn CPU (`ports/classifier.py`) | Adapter ML gọi thẳng trong `async def` sẽ chặn event loop; mọi request khác (kể cả health) phải chờ | Adapter `ml` chạy suy luận trong thread (`anyio.to_thread.run_sync`) và giới hạn số lượng song song; vượt giới hạn thì trả 503 có kiểm soát như `embedding_busy` | C |
+| K1 | `TicketClassifier.classify` là `async`, nhưng suy luận ML tốn CPU (`ports/classifier.py`) | Adapter ML gọi thẳng trong `async def` sẽ chặn event loop; mọi request khác (kể cả health) phải chờ | Adapter `ml` chạy suy luận trong executor riêng, giới hạn số luồng song song và độ sâu hàng chờ; chỉ trả 503 `classifier_busy` khi hàng chờ đầy hoặc chờ quá hạn (không từ chối ngay, xem mục 13.2) | C |
 | K2 | Ghép dịch vụ nằm ở hai nơi: `bootstrap.py` chỉ dựng classifier, còn `main.py` tự dựng E5 và chunker | Thêm provider `ml` sẽ làm `main.py` phình; AGENTS.md lại nói "đăng ký ở `bootstrap.py`" | Chuyển việc dựng embedder và preparer vào `bootstrap.py`; `main.py` chỉ gọi | N |
 | K3 | Mã thừa: `application/embedding/service.py` (`GenerateEmbedding`), `ports/embedder.py` (`TextEmbedder`), `adapters/embedders/noop.py`, `bootstrap.build_classification_use_case` | Không nơi nào dùng; gây hiểu nhầm về kiến trúc embedding | Xóa, kèm cập nhật `architecture.md` | N |
 | K4 | `/health/ready` chỉ xét tên provider (`noop` → 503) | Với `ml`, tiến trình có thể "ready" khi mô hình tải lỗi hay chưa tải xong | Classifier có thuộc tính `ready`. Tải mô hình lúc khởi động và kiểm SHA; lỗi thì `/health/ready` trả 503 kèm lý do ngắn, không giả lập dự đoán | C |
@@ -330,3 +330,38 @@ Nếu thiếu thời gian, thứ tự cắt giảm là: bỏ chạy bóng → b�
 ## 12. Tài liệu phải cập nhật khi triển khai
 
 [architecture.md](architecture.md) (D1), [DATASET.md](../evaluation/DATASET.md) (M2), [AGENTS.md](../AGENTS.md) (provider `ml`, thư mục `training/`, lệnh mới), README (bảng trạng thái, chỉ khi mô hình thật đã vào `main`), [cẩm nang chung](team-handbook.md) (bốn kho cùng lúc), `ai-integration-plan.md` của Backend (`ModelVersion`, header).
+
+## 13. Tiến độ triển khai (2026-11-17, trên nền `dev@207d26d`)
+
+### 13.1 Đã làm trong ai-service
+
+| PR | Trạng thái | Nội dung |
+| --- | --- | --- |
+| D1 | Xong | Xóa `GenerateEmbedding`, `TextEmbedder`, `NoOpEmbedder`, `build_classification_use_case`; `bootstrap.build_knowledge_index_preparer` dựng E5 và chunker, `main.py` chỉ gọi; viết lại `architecture.md` |
+| D2 | Một phần | Log `classification_completed` ghi `provider`, `model_version`. **Chưa** thêm header `X-SupportFlow-Model`: chờ Backend duyệt (mục 4.3) |
+| D3 | Xong | Port `TicketClassifier` có `ready`, `model_version`; `/health/ready` dựa vào `ready`, giữ nguyên body mà `scripts/smoke_http.py` so khớp |
+| D4 | Xong | Runner `--provider/--dataset/--split/--routing-map/--robustness/--output`; ba trường; `MANIFEST.json`; chỉ số mục 7.1 (khớp Priority, lỗi định tuyến, ECE và dải tin cậy, bootstrap, p50/p95, độ bền bỏ dấu); định dạng dữ liệu trong `evaluation/DATASET.md`. Chạy không tham số vẫn như CI |
+| Ngoài kế hoạch | Xong | `ClassifyTicket.execute` đổi lỗi vi phạm bất biến domain hoặc kiểu kết quả sai của provider thành 503 `invalid_provider_output` (ở HEAD là 500, Backend không retry và tính vào ngắt mạch); runner không còn thoát mã 1 khi in đường dẫn có dấu trên Windows |
+| D5 | Khung | `adapters/classifiers/ml/` gồm `text.py`, `artifact.py`, `inference.py`, kèm kiểm thử ranh giới `training`/`evaluation`. **Chưa** đăng ký provider `ml` trong `config.py`/`bootstrap.py`, chưa có `--model-dir`: làm cùng adapter của mô hình được chọn (M3) |
+
+Kiểm tra đã chạy trên working tree: `ruff check .` đạt; `pytest` 172 passed (mốc trước khi sửa: 107);
+`python scripts/validate_ai_contract.py` đạt; `python -m evaluation.run_classification` đạt;
+`python -m compileall -q src evaluation scripts` đạt. Chưa build image Docker.
+
+### 13.2 Phát hiện mới khi đối chiếu Backend `dev@3640c33`
+
+1. **`RoutingRule` chưa tồn tại trong mã Backend.** Chỉ có trong ADR-016 và
+   `current-backend-contract.md` ("Chưa có `RoutingRule` hay API chuyển nhóm"); phiếu mới luôn vào
+   `MANUAL_TRIAGE`. Hệ quả: mốc M1 không thể có bước "Backend chọn nhóm" nếu Backend chưa làm đợt B2;
+   chỉ số "tỷ lệ lỗi định tuyến" chưa có bảng nguồn. Runner nhận bảng qua `--routing-map` và không
+   tự đặt bảng mặc định. **[cần duyệt]**: dùng bảng tạm do nhóm thống nhất hay chờ B2.
+2. **Adapter Backend retry khi gặp 503.** `HttpTicketClassificationService` retry một lần sau 100 ms
+   khi nhận 502/503/504 trong cùng ngân sách thời gian, và mọi lần thất bại đều tính vào
+   `ClassificationCircuit` (3 lỗi liên tiếp thì ngắt 30 s cho mọi phiếu). Nếu adapter `ml` từ chối
+   ngay khi đầy chỗ như `embedding_busy`, vài phiếu đến cùng lúc có thể mở ngắt mạch. Vì vậy
+   `BoundedInference` cho xếp hàng có giới hạn và thời gian chờ tối đa 4 s (dưới mức 5 s mặc định).
+3. Header phản hồi không làm hỏng adapter hiện tại: adapter chỉ đọc `Content-Type` và
+   `Content-Length`, không kiểm header khác. Việc thêm header vẫn cần Backend đồng ý vì là thay đổi
+   bề mặt API.
+4. Panel AI ở web xác nhận chưa nối API: `WorkspaceTriagePanel` luôn truyền `result={null}` (chú thích
+   trong mã ghi "TC-277 dev integration BLOCKED").

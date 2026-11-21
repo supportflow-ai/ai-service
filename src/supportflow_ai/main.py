@@ -9,7 +9,7 @@ from supportflow_ai.api.routes.health import router as health_router
 from supportflow_ai.api.routes.knowledge import router as knowledge_router
 from supportflow_ai.application.classification.service import ClassifyTicket
 from supportflow_ai.application.embedding.index import PrepareKnowledgeIndex
-from supportflow_ai.bootstrap import build_classifier
+from supportflow_ai.bootstrap import build_classifier, build_knowledge_index_preparer
 from supportflow_ai.config import Settings, get_settings
 from supportflow_ai.observability.logging import configure_logging
 
@@ -30,14 +30,10 @@ def create_app(
         redoc_url=None,
     )
     app.state.settings = settings
-    app.state.classifier_name = classifier.name
+    app.state.classifier = classifier
     app.state.classify_ticket = ClassifyTicket(classifier)
-    if index_preparer is None and settings.embedding_provider == "local-e5":
-        from supportflow_ai.adapters.embedders.local_e5 import LocalE5Embedder
-        from supportflow_ai.adapters.markdown_chunker import DeterministicMarkdownChunker
-
-        embedder = LocalE5Embedder(settings.embedding_cache_dir)
-        index_preparer = PrepareKnowledgeIndex(DeterministicMarkdownChunker(embedder), embedder)
+    if index_preparer is None:
+        index_preparer = build_knowledge_index_preparer(settings)
     app.state.prepare_knowledge_index = index_preparer
     app.add_middleware(LimitRequestBodyMiddleware, max_bytes=settings.max_request_bytes)
     register_exception_handlers(app)
