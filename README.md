@@ -1,26 +1,26 @@
 # SupportFlow AI Service
 
+Dịch vụ cung cấp API nội bộ để gợi ý phân loại phiếu. Theo `AI-02`, mô hình phân loại học máy cục bộ và luồng người có quyền duyệt được nghiệm thu cùng Identity và Ticketing. Backend ghi kết quả và audit. Provider `rule` phục vụ kiểm thử tích hợp trong khi nhóm chọn mô hình và nối luồng đầu cuối. Bộ checkout liên kho có phạm vi và tiêu chí nghiệm thu trong `supportflow-ai-infra/docs/project/mvp.md`.
+
 ## Pipeline Knowledge Published — 05/11/2026
 
-Đã bổ sung chunking Markdown, metadata nguồn/version, embedding CPU E5 384 chiều và contract S2S indexing cho TC-346–TC-350. Xem [đặc tả sáu phần và hướng dẫn kiểm chứng](docs/knowledge-index-pipeline.md). Core giữ job/worker/pgvector; AI xử lý snapshot được gửi tới. Chưa triển khai semantic query/RAG.
+Hồ sơ TC-346–TC-350 ngày 05/11 ghi kiểm thử trên nguyên mẫu local, gồm prepare phía AI và thử tích hợp job, Worker và lưu vector phía Backend. Kết quả thuộc working tree của lần thử đó.
 
-Những lựa chọn profile và giới hạn trong đặc tả là thiết kế triển khai đề xuất để nhóm review. Pipeline này đã vào `main` (PR #7). Phía backend (`ai-it-service-desk`, `dev@07ce07a`) chưa có hợp đồng, migration hay mã tiêu thụ endpoint này, nên luồng đầu cuối chưa chạy. Không dùng các mốc lịch sử bên dưới để xác nhận bản phát hành hiện tại.
+Tại mốc 21/11, Backend `dev@3640c33` chưa có hợp đồng nguồn, migration hay consumer prepare. Việc nối Backend thuộc `AI-09`. Truy hồi ngữ nghĩa và RAG ở mốc riêng. [Thiết kế và hiện trạng prepare](docs/knowledge-index-pipeline.md) · [Kết quả lịch sử ngày 05/11](docs/knowledge-index-verification.md)
 
-Xem [kết quả kiểm chứng và bước còn thiếu](docs/knowledge-index-verification.md): test chức năng đã qua; build lại image AI cuối và smoke toàn tuyến model thật còn bị chặn bởi môi trường Docker.
-
-## Cập nhật triển khai 03/11/2026
 ## Hiện trạng
 
-AI-service cung cấp API phân loại ticket theo OpenAPI v1 của **SupportFlow AI IT Service
-Desk**. Provider `rule` phân loại theo từ khóa, còn `noop` trả readiness 503. Phân loại
-chưa tích hợp model học máy hoặc dịch vụ model bên ngoài. Embedding cho Knowledge chạy
-model E5 cục bộ trên CPU (stage `embeddings` của Dockerfile).
+AI Service `main@207d26d` có hai API nội bộ qua Bearer dịch vụ. `POST /v1/ticket-classifications` dùng OpenAPI phân loại v1. `POST /v1/knowledge-indexes:prepare` dùng hợp đồng Knowledge riêng. `rule` là provider luật hiện có. `noop` là mặc định và trả `503` ở readiness phân loại. `local-e5` thuộc cấu hình embedding, chạy E5 cục bộ trên CPU trong image stage `embeddings`.
 
 Docker cài runtime theo phiên bản ghim trong `requirements-runtime.lock`. Dependency kiểm
 thử nằm trong `pyproject.toml`. Production yêu cầu token dịch vụ riêng. Schema v1 kiểm tra
 chặt kiểu của `ticketRevision` ở cả request và response.
 
-Phân loại và duyệt gợi ý AI thuộc giai đoạn sau của dự án. Xem [đối chiếu tích hợp Backend–AI](docs/backend-alignment.md) và [tài liệu chung của dự án](https://github.com/supportflow-ai/supportflow-ai-infra/blob/main/README.md). Quy trình làm việc chung ở [cẩm nang](docs/team-handbook.md); quy tắc riêng của kho ở [AGENTS.md](AGENTS.md).
+Chỉ mục tài liệu rà ngày 21/11/2026 tại AI Service `main@207d26d`. Các mốc Backend trong tài liệu đối chiếu ghi theo lần đọc tương ứng.
+
+- Tích hợp phân loại theo [đối chiếu Backend–AI](docs/backend-alignment.md), [bản ghim v1](contract.lock.json) và [kiến trúc AI Service](docs/architecture.md).
+- Chuẩn bị thực nghiệm theo [kế hoạch classifier](docs/ml-classifier-plan.md), [đặc tả dữ liệu đánh giá](evaluation/DATASET.md) và bộ TL01–TL06 trong `docs/audit/2026-11-21/chuan-hoa-tai-lieu-ai-service.md` của workspace liên kho.
+- Khi đổi lưu trữ, xem [tác động R2 đối với AI Service](docs/r2-impact.md). Quy trình làm việc nằm trong [cẩm nang chung](docs/team-handbook.md) và [quy tắc của kho](AGENTS.md).
 
 ## Trách nhiệm
 
@@ -61,9 +61,8 @@ Xem `docs/architecture.md`.
 | FastAPI classification endpoint | Có |
 | Service Bearer auth | Có |
 | NoOp provider / controlled 503 | Có |
-| Rule-based baseline | Có: Category theo từ khóa; Impact/Urgency chỉ ở mức `High` theo rubric E0; không khớp từ khóa thì không gợi ý; từ khóa máy chủ/hạ tầng trả `OTHER` |
-| Gợi ý Impact/Urgency | Một phần: rule baseline chỉ sinh mức `High` theo rubric E0; chưa có mô hình |
-| Abstain | Có ở rule baseline (`suggestions: []` khi thiếu tín hiệu); đánh giá báo `coverage`, `selectiveAccuracy` |
+| Rule-based baseline | Category theo từ khóa, gồm `OTHER` cho từ khóa máy chủ/hạ tầng. Rubric E0 có thể gợi ý Impact/Urgency ở mức `High` |
+| Không có gợi ý | Bỏ trường thiếu tín hiệu. Trả `suggestions: []` khi không có tín hiệu ở cả ba trường |
 | Tín hiệu giải thích | Chưa có |
 | Che dữ liệu cá nhân (PII) cho dữ liệu huấn luyện | Chưa có |
 | Model phân loại học máy | Chưa chọn (dùng rule baseline) |
@@ -94,7 +93,7 @@ PowerShell có thể dùng:
 Copy-Item .env.example .env
 ```
 
-Endpoint:
+Hai POST dưới đây là API nội bộ. Ba GET kiểm tiến trình, phân loại và embedding riêng:
 
 ```text
 POST /v1/ticket-classifications
@@ -104,7 +103,7 @@ GET  /health/ready
 GET  /health/embedding
 ```
 
-Ví dụ request:
+Request và response minh họa lấy từ [fixture phân loại v1](contracts/ai/v1/fixtures.json):
 
 ```json
 {
@@ -113,7 +112,23 @@ Ví dụ request:
   "ticketRevision": 1,
   "inputHash": "e737e044b7ef976a6f2f2e97f1f2aaee633a2205cc16d051316bf2139d5dc02c",
   "title": "VPN issue",
-  "description": "Cisco AnyConnect cannot connect"
+  "description": "Cannot connect"
+}
+```
+
+```json
+{
+  "requestId": "00000000-0000-0000-0000-000000000001",
+  "ticketId": "00000000-0000-0000-0000-000000000002",
+  "ticketRevision": 1,
+  "inputHash": "e737e044b7ef976a6f2f2e97f1f2aaee633a2205cc16d051316bf2139d5dc02c",
+  "suggestions": [
+    {
+      "field": "category",
+      "value": "VPN",
+      "score": null
+    }
+  ]
 }
 ```
 
@@ -123,7 +138,7 @@ Header:
 Authorization: Bearer <SUPPORTFLOW_AI_SERVICE_TOKEN>
 ```
 
-Rule baseline trả category với `score: null`; nó không giả lập xác suất.
+Backend tính `inputHash` từ tiêu đề và mô tả. Nếu đổi nội dung, dùng hash do Backend tính lại. Phản hồi trả lại `requestId`, `ticketId`, `ticketRevision` và `inputHash`. `suggestions` chứa tối đa một phần tử `field/value/score` cho mỗi trường. Gợi ý từ `rule` dùng `score: null`. Nếu thiếu tín hiệu ở mọi trường, phản hồi có mảng gợi ý rỗng. [Ranh giới hợp đồng và bảng readiness](docs/architecture.md#contract-boundary)
 
 ## Kiểm thử
 

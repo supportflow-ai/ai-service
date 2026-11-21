@@ -1,18 +1,18 @@
 # Cẩm nang làm việc chung SupportFlow AI
 
-**Bản chung, giống hệt nhau ở bốn kho.** Phiên bản 2026-11-13. Ai sửa file này ở một kho phải mở thay đổi giống hệt ở ba kho còn lại trong cùng đợt, để các bản không lệch nhau. Quy tắc riêng của từng kho nằm trong `AGENTS.md` của kho đó; khi hai nơi khác nhau thì quy tắc riêng của kho áp dụng cho kho đó.
+**Bản chung, giống hệt nhau ở bốn kho.** Phiên bản 2026-11-21. Ai sửa file này ở một kho phải mở thay đổi giống hệt ở ba kho còn lại trong cùng đợt, để các bản không lệch nhau. Quy tắc riêng của từng kho nằm trong `AGENTS.md` của kho đó; khi hai nơi khác nhau thì quy tắc riêng của kho áp dụng cho kho đó.
 
 Dành cho mọi thành viên: lập trình viên, người kiểm thử, người vận hành và trợ lý AI. Trợ lý AI tuân theo đúng các quy tắc như người, và đọc `AGENTS.md` của kho đang làm việc trước khi sửa.
 
 ## 1. Hệ thống và bốn kho
 
-SupportFlow AI là hệ thống IT Service Desk: người dùng tạo phiếu hỗ trợ, nhân viên xử lý theo vòng đời phiếu, AI gợi ý phân loại. Ba vai trò người dùng: `Requester` (người yêu cầu), `Agent` (nhân viên hỗ trợ), `Admin`. Phạm vi MVP do chủ dự án quyết định gồm Identity và Ticketing.
+SupportFlow AI là hệ thống IT Service Desk với ba vai trò `Requester`, `Agent` và `Admin`. Theo `AI-02`, nghiệm thu Identity, Ticketing và phân loại AI bằng mô hình học máy cục bộ có người duyệt trên cùng một ứng viên. Phạm vi, hiện trạng và điều kiện `DEC-08` nằm tại `supportflow-ai-infra/docs/project/mvp.md` trong bộ checkout bốn kho. Phạm vi phát hành Knowledge được xét riêng.
 
 | Kho | Vai trò | Công nghệ | Luồng nhánh |
 | --- | --- | --- | --- |
 | [`ai-it-service-desk`](https://github.com/supportflow-ai/ai-it-service-desk) | Backend: API, nghiệp vụ, phân quyền, schema và migration, hợp đồng HTTP và hợp đồng AI v1 | .NET 10, ASP.NET Core, EF Core, PostgreSQL | `nhánh làm việc → dev → main` |
 | [`ai-it-service-desk-web`](https://github.com/supportflow-ai/ai-it-service-desk-web) | Giao diện web | React 19, TypeScript, Vite, Ant Design | `nhánh làm việc → dev → main` |
-| [`ai-service`](https://github.com/supportflow-ai/ai-service) | Dịch vụ gợi ý phân loại phiếu và tạo embedding bằng mô hình học máy cục bộ; không có database, không gọi API bên ngoài | Python 3.12, FastAPI | `nhánh làm việc → main` |
+| [`ai-service`](https://github.com/supportflow-ai/ai-service) | Dịch vụ gợi ý phân loại phiếu và tạo embedding. Classifier hiện có `rule`/`noop`; `local-e5` phục vụ embedding | Python 3.12, FastAPI | `nhánh làm việc → main` |
 | [`supportflow-ai-infra`](https://github.com/supportflow-ai/supportflow-ai-infra) | Docker Compose, NGINX, ghim phiên bản phát hành, kiểm thử khói toàn hệ thống | Docker Compose, NGINX, Python, Shell | `nhánh làm việc → main` |
 
 ```mermaid
@@ -28,7 +28,7 @@ flowchart TD
 Ranh giới sở hữu:
 
 - **Backend** sở hữu dữ liệu, quyền nghiệp vụ, trạng thái phiếu và mọi quyết định áp dụng gợi ý AI. Web chỉ hiển thị và không phải ranh giới bảo mật; ẩn nút không thay cho kiểm tra quyền ở backend.
-- **ai-service** chỉ nhận yêu cầu nội bộ giữa các dịch vụ, trả gợi ý. Phân loại và embedding chạy bằng mô hình học máy cục bộ; **không gọi API hay dịch vụ model bên ngoài**. Không kết nối database nghiệp vụ, không đổi phiếu, quyền hay luồng xử lý.
+- **AI Service** trả gợi ý phân loại v1 và chuẩn bị chỉ mục Knowledge qua hai API nội bộ. `rule` phục vụ kiểm thử tích hợp, `noop` là mặc định và `local-e5` dùng cho embedding. Mô hình phân loại học máy và luồng duyệt đầu cuối còn chờ triển khai. Backend sở hữu việc thay đổi phiếu và dữ liệu nghiệp vụ.
 - **infra** không chứa mã ứng dụng hay migration. Nó ghép các thành phần và kiểm chứng chúng chạy cùng nhau.
 
 ## 2. Bắt đầu nhanh
@@ -47,7 +47,7 @@ Chạy local theo thứ tự (mỗi bước một terminal; lệnh chi tiết �
 
 1. **infra**: `docker compose -f docker-compose.yml up -d` chạy PostgreSQL 17 (pgvector), MinIO và Mailpit. Phải chỉ rõ `-f docker-compose.yml`, vì kho có cả `compose.yaml` (stack smoke của CI) và Compose ưu tiên tệp đó khi gọi không có `-f`.
 
-> **Lưu trữ tệp: Cloudflare R2, không dùng MinIO** ([ADR-017](https://github.com/supportflow-ai/ai-it-service-desk/blob/dev/docs/adr/ADR-017-cloudflare-r2-object-storage.md), chấp nhận 2026-11-16, mọi môi trường kể cả kiểm thử và CI). Mã hiện vẫn chạy MinIO cho tới khi các PR R2 hoàn tất; trong lúc đó không thêm mã, cấu hình, kiểm thử hay tài liệu mới dựa trên MinIO. Không cần tệp đính kèm thì chỉ cần khởi động PostgreSQL: `docker compose -f docker-compose.yml up -d postgres`.
+> **Lưu trữ tệp: Cloudflare R2, không dùng MinIO** (ADR-017, chấp nhận 2026-11-16, áp dụng mọi môi trường kể cả kiểm thử và CI. Xem `ai-it-service-desk/docs/adr/ADR-017-cloudflare-r2-object-storage.md` trong bộ checkout liên kho). Mã hiện vẫn chạy MinIO cho tới khi các PR R2 hoàn tất; trong lúc đó không thêm mã, cấu hình, kiểm thử hay tài liệu mới dựa trên MinIO. Không cần tệp đính kèm thì chỉ cần khởi động PostgreSQL: `docker compose -f docker-compose.yml up -d postgres`.
 2. **backend**: restore và build, chạy `migrate` rồi `seed-roles` bằng công cụ Migrator khi database mới, sau đó khởi chạy API tại cổng 5000.
 3. **ai-service** (tùy chọn, chỉ khi cần thử hợp đồng AI): `uvicorn` tại cổng 8000.
 4. **web**: `npm ci` rồi `npm run dev` tại cổng 5173; Vite chuyển `/api` sang cổng 5000.

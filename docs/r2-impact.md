@@ -1,10 +1,10 @@
 # Ảnh hưởng của việc chuyển MinIO sang Cloudflare R2 lên ai-service
 
-Trạng thái: kế hoạch đề xuất, đã duyệt cùng ADR-017 (chấp nhận 2026-11-16, toàn phạm vi: không dùng MinIO ở mọi môi trường, kể cả kiểm thử và CI); chưa triển khai, bắt đầu bằng giai đoạn 0. Cập nhật 2026-11-13, đối chiếu `main` tại `c4669a7`. Quyết định nằm ở ADR-017 của kho backend (`docs/adr/ADR-017-cloudflare-r2-object-storage.md`); kế hoạch các kho khác: backend (`docs/architecture/r2-storage-plan.md`), web (`docs/architecture/r2-upload-plan.md`), infra (`docs/infra/r2-storage-plan.md`).
+Trạng thái: **Đã chốt · chờ triển khai**. ADR-017 của Backend được chấp nhận ngày 16/11/2026, áp dụng R2 cho local, kiểm thử, CI, staging và production. Đợt D5 đối chiếu AI Service `b35f08b` và Infra `df08561` ngày 21/11/2026. Compose hiện vẫn có MinIO. Kế hoạch phối hợp nằm ở Backend (`docs/architecture/r2-storage-plan.md`), Web (`docs/architecture/r2-upload-plan.md`) và Infra (`docs/infra/r2-storage-plan.md`).
 
 ## Kết luận
 
-**ai-service không phải đổi mã, cấu hình hay hợp đồng** khi hệ thống chuyển lưu trữ tệp từ MinIO sang R2.
+Đợt chuyển storage ảnh hưởng đến mô tả môi trường và ca kiểm phối hợp trong CI của AI Service. Runtime, quyền truy cập và hợp đồng của dịch vụ giữ nguyên.
 
 ## Căn cứ (đã kiểm tra trong mã)
 
@@ -12,13 +12,15 @@ Trạng thái: kế hoạch đề xuất, đã duyệt cùng ADR-017 (chấp nh�
 - Dịch vụ không lưu trạng thái và không đọc tệp: phân loại nhận `title`, `description`; chỉ mục tri thức nhận `title`, `content` ngay trong thân yêu cầu `POST /v1/knowledge-indexes:prepare`. Không có đường nào truyền tệp đính kèm hay khóa lưu trữ sang ai-service.
 - Biến môi trường của ai-service (`SUPPORTFLOW_AI_*`) không chứa cấu hình lưu trữ.
 
-Điểm duy nhất nhắc MinIO là một câu mô tả lần kiểm chứng cũ trong [kiểm chứng chỉ mục Knowledge](knowledge-index-verification.md) (về kiểm thử phía backend của đợt đó); là hồ sơ lịch sử, giữ nguyên.
+Mô tả kiểm thử MinIO của Backend trong [hồ sơ kiểm chứng chỉ mục Knowledge](knowledge-index-verification.md) giữ nguyên tại mốc đã kiểm.
 
 ## Việc phải làm trong kho này
 
 1. Cập nhật [cẩm nang chung](team-handbook.md) cùng lúc với ba kho còn lại khi giai đoạn 4 của kế hoạch triển khai (nơi cẩm nang nhắc MinIO).
-2. Không nhận khóa R2: ai-service không cần và **không được** có khóa hay endpoint R2 trong `.env`, Compose hay CI. Nếu sau này có tính năng cần đọc tệp, đó là thay đổi hợp đồng riêng, phải qua backend (kho giữ quyền truy cập dữ liệu và phân quyền), không cho ai-service truy cập trực tiếp bucket.
-3. Bàn giao PR của kế hoạch R2 ở các kho khác: xác nhận trong mô tả PR rằng hợp đồng v1 và hợp đồng chỉ mục tri thức không đổi (không cần cập nhật `contract.lock.json`).
+2. Kiểm phần env của service AI và job CI trên ứng viên. Dịch vụ nhận cấu hình AI và Bearer nội bộ qua `SUPPORTFLOW_AI_*`. Endpoint, khóa R2 và quyền bucket thuộc tiến trình Backend thực sự dùng storage.
+3. Đối chiếu byte hợp đồng phân loại v1, fixture, `contract.lock.json` và hợp đồng prepare Knowledge với trước khi đổi lưu trữ. Lưu kết quả trên đúng SHA/digest ứng viên.
+4. Kiểm `GET /health/live` và `GET /health/ready` của AI Service theo provider đã cấu hình. System và release hiện khai báo classifier `rule`. Mốc này chỉ kiểm dịch vụ AI. Kết quả luồng tệp và nghiệm thu ML có người duyệt được ghi riêng. [Kiến trúc và health AI](architecture.md)
+5. Khi phiên bản system/CI/release đã ghim chuyển sang R2 và ca phối hợp đạt, chuyển chỉ dẫn MinIO của phiên bản đó sang lịch sử. Dùng hướng dẫn từng stack tại kho Infra để chạy các phiên bản cũ. Bản phát hành lùi vẫn phải tương thích đồng thời với manifest, API nội bộ và trạng thái dữ liệu do Backend/Infra kiểm.
 
 ## Không thuộc phạm vi
 
