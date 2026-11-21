@@ -1,20 +1,28 @@
 # Đối chiếu backend
 
-## Mốc đối chiếu mới nhất: 16/11/2026
+## Mốc đối chiếu ngày 21/11/2026
 
-Đối chiếu nhánh `dev` của [ai-it-service-desk](https://github.com/supportflow-ai/ai-it-service-desk) tại `3640c33` (sau khi fetch ngày 16/11/2026).
+AI Service `b35f08b`, Backend `dev@3640c33`, Web `dev@89eabc4` và Infra `df08561`. Mốc Backend cũng đã được đọc ngày 16/11/2026. Mốc mã dùng để đối chiếu, còn kết quả nghiệm thu gắn với cấu hình ứng viên.
 
-- **Hợp đồng v1:** file `openapi.yaml` không đổi từ `3de4b74` (18/10/2026); `fa6f89d` (20/10) chỉ sửa README trong thư mục này. SHA-256 của `contracts/ai/v1/openapi.yaml` là `ad1d93230158b9ee66c6e3d0843edafcadde97b01bd2adef62265e4cf7f16428`, khớp `contract.lock.json`. Không cần cập nhật bản ghim.
-- **Schema request:** `ticketRevision` là số nguyên không âm, kiểu strict; `inputHash` đúng mẫu 64 ký tự hex. Khớp với ai-service.
-- **[ADR-012](https://github.com/supportflow-ai/ai-it-service-desk/blob/dev/docs/adr/ADR-012-ai-contract-and-future-transport.md):** điểm `null` khi chưa có bằng chứng, tối đa một đề xuất cho mỗi trường, AI không nhận quyền ghi. Khớp với ai-service. Các quy định về thời gian chờ, thử lại và ngắt mạch thuộc bộ tích hợp phía backend, ai-service không đổi.
-- **[ADR-016](https://github.com/supportflow-ai/ai-it-service-desk/blob/dev/docs/adr/ADR-016-support-team-routing-and-agent-scope.md):** AI không chọn nhóm xử lý hay Agent cụ thể. Ai-service không trả trường nào liên quan đến định tuyến.
-- **Enum và PriorityMatrix:** không đổi, xem [g1-doi-chieu-enum.md](g1-doi-chieu-enum.md).
-- **[Kế hoạch tích hợp AI](https://github.com/supportflow-ai/ai-it-service-desk/blob/dev/docs/architecture/ai-integration-plan.md)** (cập nhật 16/11/2026):
-  - Backend chưa có hợp đồng, migration hay mã tiêu thụ cho `POST /v1/knowledge-indexes:prepare`. Bản sao `contracts/ai/knowledge-index/v1` ở ai-service chưa có nguồn để ghim; theo kế hoạch, backend sẽ là bản chuẩn.
-  - Backend chờ ai-service ở bước 4 (chế độ NoOp rồi `local-e5`) và bước 5 (phân loại nền, dùng `rule` cho tới khi có mô hình thật).
-  - DEC-09 (`Triaged`) chưa được chốt; không ảnh hưởng hợp đồng v1.
-- **Phạm vi Knowledge (quyết định của chủ dự án, theo tài liệu kiến trúc v3.0 ngày 15/11/2026):** Knowledge là P2, ngoài MVP. Mã `knowledge-indexes:prepare`, embedding E5 và bản sao hợp đồng `contracts/ai/knowledge-index` đang có được giữ nguyên, không phát triển thêm. Mở lại chỉ khi có quyết định về corpus Published, endpoint S2S read-only và hợp đồng v2.
-- Kế hoạch tích hợp AI của Backend (mục Knowledge, bước 3–4) chưa đồng bộ với quyết định này; cần Backend cập nhật trước khi tích hợp Knowledge.
+| Luồng | Hiện có trong mã | Quyết định hoặc việc còn chờ |
+| --- | --- | --- |
+| Phân loại phiếu | `POST /v1/ticket-classifications` qua Bearer nội bộ. `rule` trả một Category với `score: null`, mặc định `OTHER` khi không khớp. `noop` trả `503` ở readiness và khi gọi phân loại. Backend có adapter chọn theo `Ai:Enabled`. Web có panel khung với `result={null}` | `AI-02` chốt mô hình học máy cục bộ có người duyệt cùng Identity và Ticketing. Còn thiếu model, caller Ticketing và luồng lưu/duyệt. Tác vụ nền và yêu cầu thủ công sau lưu là hai phương án `AI-03`. Quyền xem và cách biểu diễn triage chờ `AI-01` và `DEC-09` |
+| Chuẩn bị chỉ mục | `POST /v1/knowledge-indexes:prepare` nhận snapshot qua Bearer nội bộ. AI Service có `local-e5` và hợp đồng Knowledge riêng. `/health/embedding` kiểm readiness của bộ prepare | Backend sẽ tiêu thụ theo quyết định ngày 13/11. `AI-09` xác định mốc. Chưa có consumer, migration, job, lưu vector hay mốc nguồn cho hợp đồng Knowledge ở Backend |
+| Sử dụng Knowledge | Backend/Web có bài viết và tìm kiếm từ khóa | Phạm vi phát hành xét riêng. Truy hồi ngữ nghĩa và RAG thuộc mốc sau phân loại |
+
+OpenAPI phân loại v1 ở hai kho khớp từng byte. SHA-256 là `ad1d93230158b9ee66c6e3d0843edafcadde97b01bd2adef62265e4cf7f16428`, khớp bản ghim. `ticketRevision` là số nguyên không âm. `inputHash` là 64 ký tự hex thường. `suggestions` có tối đa một gợi ý cho mỗi trường và có thể rỗng. Backend kiểm bốn trường tương quan khi nhận phản hồi. Phần ghi kết quả dự kiến dùng `inputHash` để kiểm nội dung và `expectedRevision` để kiểm ghi đồng thời. [OpenAPI v1](../contracts/ai/v1/openapi.yaml) · [Bản ghim](../contract.lock.json)
+
+Backend sở hữu thời hạn chờ, thử lại, ngắt mạch, Priority và quyền áp dụng gợi ý. Phân loại v1 chỉ gợi ý Category, Impact và Urgency. Phiếu `SEC` tiếp tục được phân loại thủ công. Trong bộ checkout liên kho, xem [kế hoạch tích hợp Backend](https://github.com/supportflow-ai/ai-it-service-desk/blob/docs/dong-bo-tai-lieu-2026-11-21/docs/architecture/ai-integration-plan.md) và [hành vi adapter](https://github.com/supportflow-ai/ai-it-service-desk/blob/docs/dong-bo-tai-lieu-2026-11-21/docs/adr/ADR-012-ai-contract-and-future-transport.md#adapter-http-tại-mốc-đối-chiếu). [Enum và PriorityMatrix](g1-doi-chieu-enum.md)
+
+### Đối chiếu phản hồi HTTP phân loại
+
+| Mã HTTP | Bản OpenAPI v1 đã ghim | Runtime ở AI Service `b35f08b` |
+| --- | --- | --- |
+| `401` | Có phản hồi xác thực dịch vụ | Route kiểm Bearer và từ chối thông tin xác thực thiếu hoặc sai |
+| `413` | Chưa khai báo cho route phân loại | Middleware giới hạn payload và trả `detail.code=payload_too_large` |
+| `403`, `429` | Có phản hồi cấm truy cập và giới hạn tần suất | Ghi riêng lớp phát mã và xác minh với cấu hình ứng viên trước khi coi đây là phản hồi thực tế của luồng S2S |
+
+OpenAPI còn mô tả mốc thiết kế ban đầu. Dùng byte đã ghim để kiểm schema và fixture. Ghi sai khác HTTP trong ca kiểm runtime và đồng bộ hai kho trong thay đổi hợp đồng có chủ đích. [OpenAPI v1](../contracts/ai/v1/openapi.yaml) · [Bearer](../src/supportflow_ai/api/auth.py) · [Giới hạn payload](../src/supportflow_ai/api/middleware.py)
 
 ## Tích hợp S2S tại mốc ngày 05/11/2026
 
@@ -26,7 +34,7 @@
 | AI Service | Nhận `POST /v1/ticket-classifications` qua Bearer riêng giữa các dịch vụ. Kiểm tra định dạng `inputHash`, trả nguyên giá trị cùng các trường định danh và cung cấp gợi ý theo hợp đồng v1 |
 | Frontend và hạ tầng | Web giao tiếp với Backend. Hạ tầng giữ AI Service trong mạng nội bộ và quản lý kiểm tra sức khỏe khi triển khai |
 
-Hai bộ cung cấp hiện có là `rule` và `noop`. Khi dùng `noop`, `/health/ready` trả `503`. Adapter Backend và endpoint phân loại đã có trong mã. Luồng gọi từ Ticketing và lưu quyết định duyệt gợi ý vẫn cần tích hợp đầu cuối. Embedding và RAG cần hợp đồng và quyết định phạm vi riêng. [Điểm vào phân loại](../src/supportflow_ai/api/routes/classification.py) · [Kiểm tra sức khỏe](../src/supportflow_ai/api/routes/health.py)
+Bản chụp này chỉ đối chiếu phân loại v1. Trạng thái hai endpoint và các kiểm tra sức khỏe hiện hành nằm ở [kiến trúc AI Service](architecture.md).
 
 ## Mốc xây dựng ban đầu
 
@@ -54,15 +62,7 @@ Các điểm được khóa theo backend:
 
 ## Khoảng trống chưa tự ý lấp
 
-Backend hiện chưa chốt:
-
-- model classification thật;
-- embedding model/dimension;
-- external embedding HTTP contract;
-- RAG/generation contract;
-- transport metadata cho provider/model version trong classification response.
-
-Vì vậy base code không tự phát minh các field contract mới.
+Các mục còn cần quyết định gồm mô hình phân loại và ngưỡng đánh giá, mốc ghim hợp đồng Knowledge từ Backend, truy hồi/RAG và metadata phiên bản model của phản hồi phân loại. `local-e5` đã dùng profile và kích thước vector cụ thể phía AI Service. Bản hợp đồng Knowledge chỉ được ghim khi có nguồn chuẩn để đối chiếu. [Pipeline Knowledge](knowledge-index-pipeline.md)
 
 ## Cập nhật 2026-11-13
 
