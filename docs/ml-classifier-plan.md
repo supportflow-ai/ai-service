@@ -1,5 +1,7 @@
 # Định hướng và kế hoạch AI Service
 
+> Các mục 0–12 giữ nội dung kế hoạch theo mốc đối chiếu ban đầu. Mục 13 ghi phần đã triển khai theo nhật ký trên `main@09ca691`. Đối chiếu Backend và Web trong nhật ký dùng đúng các mốc ghi ở từng mục.
+
 Định hướng thực nghiệm và tích hợp. Các mục **[cần duyệt]** là đề xuất. Kết quả mô hình trên tập đánh giá tiếng Việt hiện **CHƯA ĐO**.
 
 Đối chiếu ngày 21/11/2026 tại AI Service `main@207d26d`, Backend `3640c33`, Web `89eabc4` và Infra `df08561`. Xem [kiến trúc hiện trạng](architecture.md), [đối chiếu Backend](backend-alignment.md), [ma trận Priority](g1-doi-chieu-enum.md) và [quy ước dữ liệu](../evaluation/DATASET.md).
@@ -318,3 +320,38 @@ Chạy bóng là thí nghiệm bổ sung khi quyền dữ liệu, tài nguyên v
 ## 12. Tài liệu phải cập nhật khi triển khai
 
 [Kiến trúc](architecture.md) và [README](../README.md) khi đổi runtime. [Quy ước dữ liệu](../evaluation/DATASET.md) khi khóa dataset và [hướng dẫn làm việc](../AGENTS.md) khi có provider hoặc lệnh mới. Cập nhật tài liệu Backend và Web khi mở API triage hay duyệt metadata phiên bản mô hình. [Đối chiếu Backend](backend-alignment.md)
+
+## 13. Tiến độ triển khai (2026-11-17, trên nền `dev@207d26d`)
+
+### 13.1 Đã làm trong ai-service
+
+| PR | Trạng thái | Nội dung |
+| --- | --- | --- |
+| D1 | Xong | Xóa `GenerateEmbedding`, `TextEmbedder`, `NoOpEmbedder`, `build_classification_use_case`; `bootstrap.build_knowledge_index_preparer` dựng E5 và chunker, `main.py` chỉ gọi; viết lại `architecture.md` |
+| D2 | Một phần | Log `classification_completed` ghi `provider`, `model_version`. **Chưa** thêm header `X-SupportFlow-Model`: chờ Backend duyệt (mục 4.3) |
+| D3 | Xong | Port `TicketClassifier` có `ready`, `model_version`; `/health/ready` dựa vào `ready`, giữ nguyên body mà `scripts/smoke_http.py` so khớp |
+| D4 | Xong | Runner `--provider/--dataset/--split/--routing-map/--robustness/--output`; ba trường; `MANIFEST.json`; chỉ số mục 7.1 (khớp Priority, lỗi định tuyến, ECE và dải tin cậy, bootstrap, p50/p95, độ bền bỏ dấu); định dạng dữ liệu trong `evaluation/DATASET.md`. Chạy không tham số vẫn như CI |
+| Ngoài kế hoạch | Xong | `ClassifyTicket.execute` đổi lỗi vi phạm bất biến domain hoặc kiểu kết quả sai của provider thành 503 `invalid_provider_output` (ở HEAD là 500, Backend không retry và tính vào ngắt mạch); runner không còn thoát mã 1 khi in đường dẫn có dấu trên Windows |
+| D5 | Khung | `adapters/classifiers/ml/` gồm `text.py`, `artifact.py`, `inference.py`, kèm kiểm thử ranh giới `training`/`evaluation`. **Chưa** đăng ký provider `ml` trong `config.py`/`bootstrap.py`, chưa có `--model-dir`: làm cùng adapter của mô hình được chọn (M3) |
+
+Kiểm tra đã chạy trên working tree: `ruff check .` đạt; `pytest` 172 passed (mốc trước khi sửa: 107);
+`python scripts/validate_ai_contract.py` đạt; `python -m evaluation.run_classification` đạt;
+`python -m compileall -q src evaluation scripts` đạt. Chưa build image Docker.
+
+### 13.2 Phát hiện mới khi đối chiếu Backend `dev@3640c33`
+
+1. **`RoutingRule` chưa tồn tại trong mã Backend.** Chỉ có trong ADR-016 và
+   `current-backend-contract.md` ("Chưa có `RoutingRule` hay API chuyển nhóm"); phiếu mới luôn vào
+   `MANUAL_TRIAGE`. Hệ quả: mốc M1 không thể có bước "Backend chọn nhóm" nếu Backend chưa làm đợt B2;
+   chỉ số "tỷ lệ lỗi định tuyến" chưa có bảng nguồn. Runner nhận bảng qua `--routing-map` và không
+   tự đặt bảng mặc định. **[cần duyệt]**: dùng bảng tạm do nhóm thống nhất hay chờ B2.
+2. **Adapter Backend retry khi gặp 503.** `HttpTicketClassificationService` retry một lần sau 100 ms
+   khi nhận 502/503/504 trong cùng ngân sách thời gian, và mọi lần thất bại đều tính vào
+   `ClassificationCircuit` (3 lỗi liên tiếp thì ngắt 30 s cho mọi phiếu). Nếu adapter `ml` từ chối
+   ngay khi đầy chỗ như `embedding_busy`, vài phiếu đến cùng lúc có thể mở ngắt mạch. Vì vậy
+   `BoundedInference` cho xếp hàng có giới hạn và thời gian chờ tối đa 4 s (dưới mức 5 s mặc định).
+3. Header phản hồi không làm hỏng adapter hiện tại: adapter chỉ đọc `Content-Type` và
+   `Content-Length`, không kiểm header khác. Việc thêm header vẫn cần Backend đồng ý vì là thay đổi
+   bề mặt API.
+4. Panel AI ở web xác nhận chưa nối API: `WorkspaceTriagePanel` luôn truyền `result={null}` (chú thích
+   trong mã ghi "TC-277 dev integration BLOCKED").

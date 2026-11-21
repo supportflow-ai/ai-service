@@ -11,13 +11,13 @@ async def live() -> dict[str, str]:
 
 @router.get("/health/ready")
 async def ready(request: Request):
-    provider = request.app.state.classifier_name
-    if provider == "noop":
+    classifier = request.app.state.classifier
+    if not classifier.ready:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "degraded", "classifier": provider},
+            content={"status": "degraded", "classifier": classifier.name},
         )
-    return {"status": "ready", "classifier": provider}
+    return {"status": "ready", "classifier": classifier.name}
 
 
 @router.get("/health/embedding")

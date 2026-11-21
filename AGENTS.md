@@ -29,11 +29,11 @@ Bảy điều cần nhớ trước khi sửa:
 | `src/supportflow_ai/api` | Route, schema, xác thực, middleware, xử lý lỗi |
 | `src/supportflow_ai/application` | Use case |
 | `src/supportflow_ai/domain` | Kiểu và bất biến nghiệp vụ (ví dụ `ClassificationPrediction`) |
-| `src/supportflow_ai/ports`, `adapters` | Cổng và bộ cung cấp: `classifiers/` (`rule_based`, `noop`), `embedders/` (`local_e5`, `noop`), `markdown_chunker` |
-| `src/supportflow_ai/bootstrap.py`, `config.py`, `main.py` | Ghép dịch vụ, cấu hình, tạo ứng dụng (`create_app`) |
+| `src/supportflow_ai/ports`, `adapters` | Cổng và bộ cung cấp: `classifiers/` (`rule_based`, `noop`, khung `ml/` chưa đăng ký), `embedders/` (`local_e5`), `markdown_chunker` |
+| `src/supportflow_ai/bootstrap.py`, `config.py`, `main.py` | Dựng mọi provider theo cấu hình (`bootstrap.py`), cấu hình, tạo ứng dụng (`create_app`) |
 | `contracts/ai/v1`, `contracts/ai/knowledge-index` | Hợp đồng phân loại v1; hợp đồng chỉ mục tri thức (profile, fixture) |
 | `tests/unit`, `integration`, `contract` | Kiểm thử đơn vị, API và hợp đồng |
-| `evaluation/` | Baseline đánh giá phân loại; `sample-classification.jsonl` chỉ là dữ liệu smoke, không phải gold set |
+| `evaluation/` | Runner đánh giá ba trường (`--provider`, `--dataset`, `--split`, `--routing-map`, `--robustness`; xem `evaluation/DATASET.md`); `sample-classification.jsonl` chỉ là dữ liệu smoke, không phải gold set |
 | `scripts/` | `validate_ai_contract.py`, `smoke_http.py`, `smoke_knowledge_index.py`, `download_embedding_model.py` |
 
 Tài liệu: [README](README.md), [kiến trúc](docs/architecture.md), [đối chiếu Backend–AI](docs/backend-alignment.md), [pipeline Knowledge](docs/knowledge-index-pipeline.md), [kiểm chứng](docs/knowledge-index-verification.md).
