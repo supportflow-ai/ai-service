@@ -1,0 +1,7 @@
+# Phụ thuộc cho huấn luyện và nạp artifact ML (không thuộc image runtime, không thuộc requirements-runtime.lock).
+# Phiên bản quan sát trong môi trường Python 3.12.16 (PR-0). Ghim cả phụ thuộc gián tiếp để tái lập.
+joblib==1.6.0
+numpy==2.5.5
+scikit-learn==1.9.1
+scipy==1.18.1
+threadpoolctl==3.8.0

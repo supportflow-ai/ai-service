@@ -45,7 +45,7 @@ Cần Python 3.12. Chạy từ gốc repo, trong venv (không cài package vào 
 ```sh
 python -m venv .venv
 # Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
-python -m pip install -r requirements-runtime.lock -e ".[dev]"
+python -m pip install -r requirements-runtime.lock -r requirements-ml.txt -e ".[dev]"
 cp .env.example .env     # đặt SUPPORTFLOW_AI_SERVICE_TOKEN riêng, không commit
 uvicorn supportflow_ai.main:create_app --factory --reload --host 127.0.0.1 --port 8000
 ```

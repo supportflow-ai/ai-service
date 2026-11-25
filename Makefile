@@ -1,7 +1,7 @@
 .PHONY: install test lint contract run baseline docker-build
 
 install:
-	python -m pip install -e ".[dev]"
+	python -m pip install -r requirements-ml.txt -e ".[dev]"
 
 test:
 	pytest

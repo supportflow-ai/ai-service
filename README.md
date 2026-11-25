@@ -80,7 +80,7 @@ python -m venv .venv
 # Linux/macOS:
 source .venv/bin/activate
 
-python -m pip install -r requirements-runtime.lock -e ".[dev]"
+python -m pip install -r requirements-runtime.lock -r requirements-ml.txt -e ".[dev]"
 cp .env.example .env
 # Sinh token riêng, sao chép kết quả vào SUPPORTFLOW_AI_SERVICE_TOKEN trong .env:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
