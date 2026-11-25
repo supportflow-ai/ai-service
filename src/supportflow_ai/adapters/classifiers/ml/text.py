@@ -52,3 +52,21 @@ def compose_input(title: str, description: str, *, max_chars: int) -> str:
         return head[:max_chars]
     text = f"{head}\n{body}" if body else head
     return text[:max_chars]
+
+
+# Giá trị đề xuất, chưa đo. Đổi giá trị này là đổi đầu vào mô hình: tăng PREPROCESSING_VERSION.
+MODEL_INPUT_MAX_CHARS = 2000
+
+
+def model_input(title: str, description: str) -> str:
+    """Đầu vào DUY NHẤT của mô hình ML, dùng cho cả huấn luyện và suy luận.
+
+    Định dạng (PREPROCESSING_VERSION "1"): với base = compose_input(title, description,
+    max_chars=MODEL_INPUT_MAX_CHARS), kết quả là "base" + "\\n" + strip_diacritics(base) nếu base
+    khác rỗng, ngược lại là chuỗi rỗng. Bản bỏ dấu đưa đặc trưng n-gram ký tự cho phiếu không dấu
+    (ml-classifier-plan.md mục 4.2.3). Đổi định dạng này bắt buộc tăng PREPROCESSING_VERSION.
+    """
+    base = compose_input(title, description, max_chars=MODEL_INPUT_MAX_CHARS)
+    if not base:
+        return ""
+    return f"{base}\n{strip_diacritics(base)}"

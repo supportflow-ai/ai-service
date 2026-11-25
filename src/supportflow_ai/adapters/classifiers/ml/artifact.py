@@ -72,6 +72,7 @@ class ArtifactManifest:
     thresholds: Mapping[str, float]
     files: Mapping[str, str]
     environment: Mapping[str, str]
+    contract_sha256: str
     calibrated: bool
 
     @property
@@ -128,6 +129,7 @@ def load_manifest(model_dir: str | Path) -> ArtifactManifest:
         thresholds=MappingProxyType(_thresholds(raw["thresholds"])),
         files=MappingProxyType(files),
         environment=MappingProxyType(environment),
+        contract_sha256=raw["classificationContractSha256"],
         calibrated="calibration" in raw,
     )
 
