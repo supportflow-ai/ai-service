@@ -1,11 +1,11 @@
 import hashlib
 import io
 import os
+from pathlib import Path
 
 import joblib
 import pytest
 
-from supportflow_ai.adapters.classifiers.ml import artifact
 from supportflow_ai.adapters.classifiers.ml.artifact import (
     ENVIRONMENT_KEYS,
     MANIFEST_NAME,
@@ -65,9 +65,17 @@ def test_missing_file_is_refused(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "relative", ["../outside.joblib", "/etc/passwd", "sub\\model.joblib", "", MANIFEST_NAME],
+    "relative",
+    [
+        "../outside.joblib",
+        "/etc/passwd",
+        "C:\\Windows\\win.ini",
+        "sub\\model.joblib",
+        "",
+        MANIFEST_NAME,
+    ],
 )
-def test_paths_outside_model_dir_are_refused(tmp_path, relative):
+def test_invalid_relative_paths_are_refused(tmp_path, relative):
     write_artifact(tmp_path, files={relative: "0" * 64})
     assert _code(tmp_path) == "artifact_path_invalid"
 
@@ -153,18 +161,25 @@ def test_model_replaced_before_load_is_not_loaded(tmp_path):
 
 
 def test_bytes_returned_match_hash_when_file_replaced_after_hashing(tmp_path, monkeypatch):
-    # File bị thay ngay sau khi băm: bytes trả về vẫn phải khớp mã băm đã kiểm.
+    # Hook gắn vào Path.open vì mọi lần đọc file (kể cả read_bytes) đều mở file qua đó.
+    # Lần mở thứ hai, tức lần đọc trả về, xảy ra sau khi file đã bị thay: bytes trả về phải
+    # khớp mã băm trong manifest. Hook không chạy hoặc chạy hơn 1 lần thì test thất bại.
     write_artifact(tmp_path)
     manifest = load_manifest(tmp_path)
-    real_hash = artifact.file_sha256
+    real_open = Path.open
+    opened: list[Path] = []
 
-    def hash_then_replace(path):
-        digest = real_hash(path)
-        path.write_bytes(b"replaced-after-hash")
-        return digest
+    def open_and_replace_before_second_read(self, *args, **kwargs):
+        if self.name == MODEL_FILE:
+            opened.append(self)
+            if len(opened) == 2:
+                with real_open(self, "wb") as stream:
+                    stream.write(b"replaced-after-hash")
+        return real_open(self, *args, **kwargs)
 
-    monkeypatch.setattr(artifact, "file_sha256", hash_then_replace)
+    monkeypatch.setattr(Path, "open", open_and_replace_before_second_read)
     data = load_verified_bytes(manifest, MODEL_FILE)
+    assert len(opened) == 1, "hook phải chạy đúng 1 lần: nạp chỉ đọc file một lần"
     assert hashlib.sha256(data).hexdigest() == manifest.files[MODEL_FILE]
 
 
@@ -193,3 +208,19 @@ def test_model_replaced_by_symlink_outside_root_is_refused(tmp_path):
     with pytest.raises(ArtifactError) as raised:
         load_verified_bytes(manifest, MODEL_FILE)
     assert raised.value.code == "artifact_path_invalid"
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "symlink") or os.name == "nt",
+    reason="Windows cần quyền tạo symlink; máy phát triển này không có (WinError 1314). "
+           "Test chạy trên CI Linux.",
+)
+def test_symlink_in_manifest_pointing_outside_is_refused(tmp_path):
+    # Symlink nằm sẵn trong manifest, trỏ ra ngoài thư mục: từ chối ngay khi load_manifest.
+    model_dir = tmp_path / "model"
+    write_artifact(model_dir)
+    outside = tmp_path / "outside.joblib"
+    outside.write_bytes(tiny_model_bytes())
+    (model_dir / MODEL_FILE).unlink()
+    os.symlink(outside, model_dir / MODEL_FILE)
+    assert _code(model_dir) == "artifact_path_invalid"
