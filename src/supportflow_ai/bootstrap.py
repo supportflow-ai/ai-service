@@ -16,7 +16,21 @@ from supportflow_ai.ports.classifier import TicketClassifier
 def build_classifier(settings: Settings) -> TicketClassifier:
     if settings.classifier_provider == "rule":
         return RuleBasedClassifier()
-    return NoOpClassifier()
+    if settings.classifier_provider == "noop":
+        return NoOpClassifier()
+    if settings.classifier_provider == "ml":
+        # Import muộn: chỉ nạp khi provider ml được chọn. Artifact lỗi thì provider chưa sẵn sàng.
+        from supportflow_ai.adapters.classifiers.ml.provider import MlClassifier
+
+        return MlClassifier(
+            model_dir=settings.classifier_model_dir,
+            allow_dev_stub=settings.allow_dev_stub,
+            max_concurrency=settings.classifier_max_concurrency,
+            max_queue=settings.classifier_max_queue,
+            queue_timeout_s=settings.classifier_queue_timeout_s,
+        )
+    # Không rơi về NoOp im lặng: giá trị lạ là lỗi cấu hình.
+    raise ValueError(f"Unknown classifier provider: {settings.classifier_provider!r}")
 
 
 def build_knowledge_index_preparer(settings: Settings) -> PrepareKnowledgeIndex | None:
