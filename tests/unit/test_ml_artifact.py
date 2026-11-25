@@ -5,6 +5,7 @@ import os
 import joblib
 import pytest
 
+from supportflow_ai.adapters.classifiers.ml import artifact
 from supportflow_ai.adapters.classifiers.ml.artifact import (
     ENVIRONMENT_KEYS,
     MANIFEST_NAME,
@@ -141,14 +142,30 @@ def test_verified_bytes_are_the_hashed_bytes_and_load_as_model(tmp_path):
     assert set(model.classes_) == {"VPN", "PRINT", "ACC"}
 
 
-def test_model_replaced_after_manifest_check_is_not_loaded(tmp_path):
-    # TOCTOU: load_manifest băm xong, file bị thay trước khi nạp. Phải bị từ chối.
+def test_model_replaced_before_load_is_not_loaded(tmp_path):
+    # File bị thay sau load_manifest nhưng trước khi nạp: phải bị từ chối.
     write_artifact(tmp_path)
     manifest = load_manifest(tmp_path)
     (tmp_path / MODEL_FILE).write_bytes(tiny_model_bytes() + b"-swapped")
     with pytest.raises(ArtifactError) as raised:
         load_verified_bytes(manifest, MODEL_FILE)
     assert raised.value.code == "artifact_sha_mismatch"
+
+
+def test_bytes_returned_match_hash_when_file_replaced_after_hashing(tmp_path, monkeypatch):
+    # File bị thay ngay sau khi băm: bytes trả về vẫn phải khớp mã băm đã kiểm.
+    write_artifact(tmp_path)
+    manifest = load_manifest(tmp_path)
+    real_hash = artifact.file_sha256
+
+    def hash_then_replace(path):
+        digest = real_hash(path)
+        path.write_bytes(b"replaced-after-hash")
+        return digest
+
+    monkeypatch.setattr(artifact, "file_sha256", hash_then_replace)
+    data = load_verified_bytes(manifest, MODEL_FILE)
+    assert hashlib.sha256(data).hexdigest() == manifest.files[MODEL_FILE]
 
 
 def test_model_deleted_after_manifest_check_is_refused(tmp_path):
