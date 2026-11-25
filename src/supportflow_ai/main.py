@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from supportflow_ai.api.errors import register_exception_handlers
@@ -12,6 +15,15 @@ from supportflow_ai.application.embedding.index import PrepareKnowledgeIndex
 from supportflow_ai.bootstrap import build_classifier, build_knowledge_index_preparer
 from supportflow_ai.config import Settings, get_settings
 from supportflow_ai.observability.logging import configure_logging
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
+    # Provider có tài nguyên (executor) cần đóng khi tắt; NoOp và rule không có close().
+    close = getattr(app.state.classifier, "close", None)
+    if close is not None:
+        close()
 
 
 def create_app(
@@ -28,6 +40,7 @@ def create_app(
         docs_url=None if is_production else "/docs",
         openapi_url=None if is_production else "/openapi.json",
         redoc_url=None,
+        lifespan=_lifespan,
     )
     app.state.settings = settings
     app.state.classifier = classifier
