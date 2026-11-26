@@ -27,6 +27,19 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)" || exit 1
 CMD ["uvicorn", "supportflow_ai.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
 
+# Đặt trước embeddings: Docker lấy stage cuối làm target mặc định.
+# shortcut: artifact được copy từ ngữ cảnh build chứ chưa tải từ kho có ghim hash; nâng khi chốt nơi lưu artifact.
+FROM runtime AS ml
+ARG ML_ARTIFACT_DIR=ml-artifact
+USER root
+COPY requirements-ml.txt ./
+RUN python -m pip install -r requirements-ml.txt
+COPY ${ML_ARTIFACT_DIR} /opt/ml-model
+RUN python -c "from supportflow_ai.adapters.classifiers.ml.artifact import load_manifest, load_verified_bytes as v; m = load_manifest('/opt/ml-model'); [v(m, f) for f in m.files]"
+ENV SUPPORTFLOW_AI_CLASSIFIER_PROVIDER=ml \
+    SUPPORTFLOW_AI_CLASSIFIER_MODEL_DIR=/opt/ml-model
+USER app
+
 FROM runtime AS embeddings
 USER root
 COPY requirements-embeddings.txt /opt/requirements-embeddings.txt
