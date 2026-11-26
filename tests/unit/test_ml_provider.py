@@ -10,7 +10,7 @@ from sklearn.preprocessing import FunctionTransformer
 
 from supportflow_ai.adapters.classifiers.ml.provider import MODEL_FILE, MlClassifier
 from supportflow_ai.adapters.classifiers.ml.text import model_input
-from supportflow_ai.domain.classification import SuggestionField
+from supportflow_ai.domain.classification import Impact, SuggestionField
 from supportflow_ai.domain.errors import ProviderUnavailableError
 from tests.unit.ml_artifact_helper import (
     TRAINING_PAIRS,
@@ -99,6 +99,29 @@ async def test_score_below_threshold_abstains_with_empty_suggestions(tmp_path, m
     assert provider.ready
     prediction = await provider.classify(title=TITLE, description="")
     assert prediction.suggestions == ()
+
+
+SEVERE_TITLE = "cả phòng không truy cập được hệ thống"
+
+
+async def test_high_impact_is_added_next_to_category_with_null_score(tmp_path, make_provider):
+    write_artifact(tmp_path, status="candidate", thresholds={"category": 0.0})
+    provider = make_provider(tmp_path)
+    prediction = await provider.classify(title=SEVERE_TITLE, description="")
+    by_field = {s.field: s for s in prediction.suggestions}
+    assert by_field[SuggestionField.CATEGORY].score is None
+    assert by_field[SuggestionField.IMPACT].value == Impact.HIGH
+    assert by_field[SuggestionField.IMPACT].score is None
+    assert SuggestionField.URGENCY not in by_field  # không có tín hiệu thời hạn
+
+
+async def test_high_impact_survives_category_abstention(tmp_path, make_provider):
+    write_artifact(tmp_path, status="candidate", thresholds={"category": 0.999})
+    provider = make_provider(tmp_path)
+    prediction = await provider.classify(title=SEVERE_TITLE, description="")
+    assert [(s.field, s.value) for s in prediction.suggestions] == [
+        (SuggestionField.IMPACT, Impact.HIGH),
+    ]
 
 
 def test_tampered_model_is_refused_by_hash_check(tmp_path, make_provider):

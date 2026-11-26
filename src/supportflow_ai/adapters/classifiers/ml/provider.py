@@ -22,7 +22,8 @@ from supportflow_ai.adapters.classifiers.ml.artifact import (
 )
 from supportflow_ai.adapters.classifiers.ml.contract_pin import CONTRACT_SHA256
 from supportflow_ai.adapters.classifiers.ml.inference import BoundedInference
-from supportflow_ai.adapters.classifiers.ml.text import model_input
+from supportflow_ai.adapters.classifiers.ml.text import model_input, normalize
+from supportflow_ai.adapters.classifiers.severity_rules import infer_severity
 from supportflow_ai.domain.classification import (
     Category,
     ClassificationPrediction,
@@ -89,6 +90,8 @@ class MlClassifier:
         if not self.ready or self._closed:
             raise ProviderUnavailableError("classification_provider_not_ready")
         text = model_input(title, description)
+        # Impact/Urgency theo rubric E0 (chỉ High), độc lập với model Category.
+        severity = infer_severity(normalize(f"{title}\n{description}"))
         try:
             label, probability = await self._runner.run(self._predict, text)
         except ProviderUnavailableError:
@@ -99,11 +102,11 @@ class MlClassifier:
         if manifest is None:
             raise ProviderUnavailableError("classification_provider_not_ready")
         if probability < manifest.thresholds["category"]:
-            return ClassificationPrediction(suggestions=())
+            return ClassificationPrediction(suggestions=severity)
         # Dev-stub không bao giờ phát điểm; candidate chỉ phát điểm khi đã hiệu chỉnh.
         score = probability if manifest.calibrated and manifest.status == "candidate" else None
         suggestion = Suggestion(SuggestionField.CATEGORY, Category(label), score)
-        return ClassificationPrediction(suggestions=(suggestion,))
+        return ClassificationPrediction(suggestions=(suggestion, *severity))
 
     def close(self) -> None:
         self._closed = True
