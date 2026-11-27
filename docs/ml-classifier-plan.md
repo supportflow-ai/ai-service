@@ -171,7 +171,7 @@ Backend đọc response bằng `JsonUnmappedMemberHandling.Disallow` và hợp �
 
 ### 4.4 Đóng gói và vận hành
 
-- Cấu hình đề xuất gồm `SUPPORTFLOW_AI_CLASSIFIER_PROVIDER=ml`, thư mục artifact và giới hạn chạy song song. Runtime hiện chỉ nhận `noop` và `rule`. Giá trị mới cần mã hỗ trợ và kiểm thử trước khi cập nhật Compose.
+- Cấu hình đề xuất gồm `SUPPORTFLOW_AI_CLASSIFIER_PROVIDER=ml`, thư mục artifact và giới hạn chạy song song. Runtime nhận `noop`, `rule` và `ml` (đã đăng ký ở #26). Compose chưa đặt `ml`; chỉ đổi khi artifact đã được duyệt và readiness kiểm được artifact.
 - Manifest artifact ghi SHA mã, dataset/split và guideline, preprocess, phiên bản mô hình, phiên bản thư viện, phương pháp hiệu chuẩn, ngưỡng theo trường và digest từng tệp. Khi triển khai, readiness của provider phải kiểm artifact trước khi nhận request.
 - Image:
   - Nếu chọn TF-IDF: stage `classifier` dựng từ `runtime`, thêm `scikit-learn` (ghim phiên bản) và artifact. Không đưa vào `requirements-runtime.lock` mặc định (AGENTS.md mục 0, điều 7).
@@ -325,6 +325,8 @@ Chạy bóng là thí nghiệm bổ sung khi quyền dữ liệu, tài nguyên v
 
 ### 13.1 Đã làm trong ai-service
 
+Cập nhật 27/11/2026 trên `main@3c54d35`: các PR #23 và #26–#28 đã vào `main`, ghi ở các dòng cuối của bảng.
+
 | PR | Trạng thái | Nội dung |
 | --- | --- | --- |
 | D1 | Xong | Xóa `GenerateEmbedding`, `TextEmbedder`, `NoOpEmbedder`, `build_classification_use_case`; `bootstrap.build_knowledge_index_preparer` dựng E5 và chunker, `main.py` chỉ gọi; viết lại `architecture.md` |
@@ -332,7 +334,11 @@ Chạy bóng là thí nghiệm bổ sung khi quyền dữ liệu, tài nguyên v
 | D3 | Xong | Port `TicketClassifier` có `ready`, `model_version`; `/health/ready` dựa vào `ready`, giữ nguyên body mà `scripts/smoke_http.py` so khớp |
 | D4 | Xong | Runner `--provider/--dataset/--split/--routing-map/--robustness/--output`; ba trường; `MANIFEST.json`; chỉ số mục 7.1 (khớp Priority, lỗi định tuyến, ECE và dải tin cậy, bootstrap, p50/p95, độ bền bỏ dấu); định dạng dữ liệu trong `evaluation/DATASET.md`. Chạy không tham số vẫn như CI |
 | Ngoài kế hoạch | Xong | `ClassifyTicket.execute` đổi lỗi vi phạm bất biến domain hoặc kiểu kết quả sai của provider thành 503 `invalid_provider_output` (ở HEAD là 500, Backend không retry và tính vào ngắt mạch); runner không còn thoát mã 1 khi in đường dẫn có dấu trên Windows |
-| D5 | Khung | `adapters/classifiers/ml/` gồm `text.py`, `artifact.py`, `inference.py`, kèm kiểm thử ranh giới `training`/`evaluation`. **Chưa** đăng ký provider `ml` trong `config.py`/`bootstrap.py`, chưa có `--model-dir`: làm cùng adapter của mô hình được chọn (M3) |
+| D5 | Khung | `adapters/classifiers/ml/` gồm `text.py`, `artifact.py`, `inference.py`, kèm kiểm thử ranh giới `training`/`evaluation`. Phần đăng ký provider nằm ở #26. **Chưa** có `--model-dir` trong runner, chưa có trainer và chưa có artifact ứng viên (M3) |
+| #23 | Xong | Manifest `schemaVersion` 2. Nạp `model.joblib` từ byte đã băm, không băm rồi đọc lại. Kiểm đường dẫn và symlink. Test khi file bị thay trước và sau khi băm |
+| #26 | Xong | Cấu hình `classifier_provider=ml` cùng giới hạn song song và hàng đợi. `MlClassifier`, hằng số hợp đồng `contract_pin.py`, đăng ký ở `bootstrap.py`, đóng provider khi tắt app |
+| #27 | Xong | Impact và Urgency mức `High` theo rubric E0 trong provider `ml`, tách khỏi điểm Category |
+| #28 | Xong | Stage `ml` của Dockerfile: cài `requirements-ml.txt`, copy artifact từ ngữ cảnh build, kiểm SHA lúc build. `scripts/benchmark_ml.py` đo p50/p95/RSS trong tiến trình. Chưa tải artifact theo hash ghim. CI chưa chạy provider `ml` trong container |
 
 Kiểm tra đã chạy trên working tree: `ruff check .` đạt; `pytest` 172 passed (mốc trước khi sửa: 107);
 `python scripts/validate_ai_contract.py` đạt; `python -m evaluation.run_classification` đạt;

@@ -53,7 +53,7 @@ Xác thực mặc định bật. Chỉ cấu hình `development` và `test` cho 
 | Endpoint | Phạm vi kiểm tra |
 | --- | --- |
 | `GET /health/live` | Tiến trình phản hồi `200` |
-| `GET /health/ready` | Phân loại. `rule` trả `200`, `noop` trả `503` |
+| `GET /health/ready` | Phân loại. `rule` trả `200`, `noop` trả `503`. `ml` trả `200` khi artifact đã kiểm SHA nạp được, `503` khi không |
 | `GET /health/embedding` | Chuẩn bị embedding. Trả `200` khi bộ prepare sẵn sàng, `503` khi chưa có hoặc chưa sẵn sàng |
 
 Các route sức khỏe hiện không dùng Bearer dịch vụ. Readiness của từng năng lực chỉ mô tả AI Service. Bằng chứng tích hợp Backend, Web và mô hình ứng viên được ghi ở mốc nghiệm thu. [Route sức khỏe](../src/supportflow_ai/api/routes/health.py)
@@ -75,11 +75,11 @@ AI service không truy cập trực tiếp Service Desk PostgreSQL.
 ## Provider evolution
 
 ```text
-classification: noop | rule
+classification: noop | rule | ml
 embedding:      noop | local-e5
 ```
 
-Hai cấu hình độc lập và đều mặc định `noop`. Mô hình phân loại học máy còn chờ chọn và đánh giá theo `AI-07`. Ngày 13/11/2026 chủ dự án chốt inference cục bộ. `AI-02` yêu cầu phân loại có người duyệt cùng Identity và Ticketing trên một ứng viên. [Kế hoạch phân loại](ml-classifier-plan.md) · [Đối chiếu hai dịch vụ](backend-alignment.md)
+Hai cấu hình độc lập và đều mặc định `noop`. Provider `ml` đã đăng ký, nhưng chưa có artifact ứng viên được chọn và đánh giá theo `AI-07`. Ngày 13/11/2026 chủ dự án chốt inference cục bộ. `AI-02` yêu cầu phân loại có người duyệt cùng Identity và Ticketing trên một ứng viên. [Kế hoạch phân loại](ml-classifier-plan.md) · [Đối chiếu hai dịch vụ](backend-alignment.md)
 
 ## Bổ sung kỹ thuật tại `main@09ca691`
 
@@ -121,10 +121,12 @@ Port `TicketClassifier` (`ports/classifier.py`) có `name`, `ready`, `model_vers
 | --- | --- | --- | --- |
 | `noop` (mặc định khi không cấu hình) | `False` | | Trả 503 `provider_unavailable` có kiểm soát |
 | `rule` | `True` | `null` | Từ khóa cho Category; rubric E0 chỉ phát `High` cho Impact/Urgency |
-| `ml` (kế hoạch, mốc M3) | Theo kết quả tải artifact | Đã hiệu chỉnh hoặc `null` | Khung ở `adapters/classifiers/ml/` |
+| `ml` | Theo kiểm tra artifact lúc nạp. `dev-stub` chỉ nạp khi `SUPPORTFLOW_AI_ALLOW_DEV_STUB` bật (development, test) | `null`, trừ artifact `candidate` đã hiệu chỉnh | Đăng ký ở `bootstrap.py`, mã ở `adapters/classifiers/ml/` |
 
-Khung `adapters/classifiers/ml/` (chưa đăng ký làm provider):
+Adapter `adapters/classifiers/ml/` (đã đăng ký ở `bootstrap.py`):
 
+- `provider.py`: `MlClassifier` nạp artifact lúc khởi động. Lỗi artifact hoặc môi trường làm `ready` là `False`, app vẫn chạy và `/health/ready` trả 503. Impact và Urgency mức `High` lấy từ rubric E0, độc lập với mô hình Category.
+- `contract_pin.py`: SHA-256 của hợp đồng v1 đã ghim. Manifest có `classificationContractSha256` khác hằng số này bị từ chối.
 - `text.py`: chuẩn hóa và cắt văn bản, dùng chung cho huấn luyện và suy luận; `PREPROCESSING_VERSION`
   được ghi vào manifest để chặn lệch tiền xử lý.
 - `artifact.py`: đọc `manifest.json`, kiểm SHA-256 từng file, chặn đường dẫn ra ngoài thư mục mô hình,

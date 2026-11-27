@@ -6,7 +6,7 @@ Dành cho mọi người làm việc trong kho này, gồm lập trình viên, n
 
 **Kho này làm gì.** Dịch vụ FastAPI không lưu trạng thái, cung cấp:
 
-- `POST /v1/ticket-classifications`: gợi ý danh mục, mức ảnh hưởng, độ khẩn cấp cho phiếu theo hợp đồng v1. Hiện có provider `rule` (từ khóa: gợi ý danh mục; Impact và Urgency chỉ ở mức `High` theo rubric E0 của v3.0, không gợi ý khi thiếu tín hiệu; không khớp từ khóa thì không gợi ý; `OTHER` chỉ khi khớp từ khóa máy chủ/hạ tầng) và `noop` (trả 503 có kiểm soát); mô hình học máy cục bộ cho MVP đang ở giai đoạn kế hoạch ([ml-classifier-plan.md](docs/ml-classifier-plan.md)).
+- `POST /v1/ticket-classifications`: gợi ý danh mục, mức ảnh hưởng, độ khẩn cấp cho phiếu theo hợp đồng v1. Hiện có provider `rule` (từ khóa: gợi ý danh mục; Impact và Urgency chỉ ở mức `High` theo rubric E0 của v3.0, không gợi ý khi thiếu tín hiệu; không khớp từ khóa thì không gợi ý; `OTHER` chỉ khi khớp từ khóa máy chủ/hạ tầng), `noop` (trả 503 có kiểm soát) và `ml` (mô hình học máy cục bộ, nạp artifact đã kiểm SHA; chưa có artifact ứng viên được nghiệm thu, chất lượng CHƯA ĐO; xem [ml-classifier-plan.md](docs/ml-classifier-plan.md)). Cấu hình mặc định là `noop`; chọn provider bằng `SUPPORTFLOW_AI_CLASSIFIER_PROVIDER`.
 - `POST /v1/knowledge-indexes:prepare`: chuẩn bị chỉ mục bài viết Knowledge (chia khối Markdown, embedding CPU E5). Chỉ S2S.
 - `GET /health/live`, `/health/ready`, `/health/embedding`.
 
@@ -20,7 +20,7 @@ Bảy điều cần nhớ trước khi sửa:
 4. **Hợp đồng v1 thuộc backend.** `contracts/ai/v1/openapi.yaml` phải khớp từng byte với bản của backend; `contract.lock.json` ghim SHA nguồn và hash, CI kiểm tra. Không sửa tay cho lệch.
 5. **Ports & Adapters.** Route không gọi SDK model trực tiếp; provider mới đặt trong `adapters/` và đăng ký ở `bootstrap.py`. Kiểm thử `test_architecture_boundaries` canh ranh giới này.
 6. **Không giả lập.** Rule baseline trả `score: null`, không bịa xác suất. Schema chặt: từ chối trường lạ, `ticketRevision` phải là số nguyên, body vượt giới hạn trả 413.
-7. **Phụ thuộc ML nặng chỉ ở phần embedding**: extra `embeddings` trong `pyproject.toml` và stage `embeddings` của Dockerfile (`requirements-embeddings.txt`). Không thêm chúng vào `requirements-runtime.lock` hay stage `runtime`.
+7. **Phụ thuộc ML nặng không nằm trong runtime**: extra `embeddings` trong `pyproject.toml` và stage `embeddings` của Dockerfile (`requirements-embeddings.txt`); `requirements-ml.txt` (scikit-learn, joblib, numpy, scipy) chỉ dùng ở stage `ml` và môi trường phát triển. Không thêm chúng vào `requirements-runtime.lock` hay stage `runtime`.
 
 ## 1. Cấu trúc
 
@@ -29,12 +29,12 @@ Bảy điều cần nhớ trước khi sửa:
 | `src/supportflow_ai/api` | Route, schema, xác thực, middleware, xử lý lỗi |
 | `src/supportflow_ai/application` | Use case |
 | `src/supportflow_ai/domain` | Kiểu và bất biến nghiệp vụ (ví dụ `ClassificationPrediction`) |
-| `src/supportflow_ai/ports`, `adapters` | Cổng và bộ cung cấp: `classifiers/` (`rule_based`, `noop`, khung `ml/` chưa đăng ký), `embedders/` (`local_e5`), `markdown_chunker` |
+| `src/supportflow_ai/ports`, `adapters` | Cổng và bộ cung cấp: `classifiers/` (`rule_based`, `noop`, `ml/` đã đăng ký ở `bootstrap.py`), `embedders/` (`local_e5`), `markdown_chunker` |
 | `src/supportflow_ai/bootstrap.py`, `config.py`, `main.py` | Dựng mọi provider theo cấu hình (`bootstrap.py`), cấu hình, tạo ứng dụng (`create_app`) |
 | `contracts/ai/v1`, `contracts/ai/knowledge-index` | Hợp đồng phân loại v1; hợp đồng chỉ mục tri thức (profile, fixture) |
 | `tests/unit`, `integration`, `contract` | Kiểm thử đơn vị, API và hợp đồng |
 | `evaluation/` | Runner đánh giá ba trường (`--provider`, `--dataset`, `--split`, `--routing-map`, `--robustness`; xem `evaluation/DATASET.md`); `sample-classification.jsonl` chỉ là dữ liệu smoke, không phải gold set |
-| `scripts/` | `validate_ai_contract.py`, `smoke_http.py`, `smoke_knowledge_index.py`, `download_embedding_model.py` |
+| `scripts/` | `validate_ai_contract.py`, `smoke_http.py`, `smoke_knowledge_index.py`, `download_embedding_model.py`, `benchmark_ml.py` (đo p50/p95 và RSS của provider `ml` trong tiến trình) |
 
 Tài liệu: [README](README.md), [kiến trúc](docs/architecture.md), [đối chiếu Backend–AI](docs/backend-alignment.md), [pipeline Knowledge](docs/knowledge-index-pipeline.md), [kiểm chứng](docs/knowledge-index-verification.md).
 
@@ -60,7 +60,7 @@ python -m evaluation.run_classification
 python -m compileall -q src evaluation scripts
 ```
 
-Có thể dùng `make install | lint | test | contract | run | baseline | docker-build`. `make docker-build` tạo image `ghcr.io/supportflow-ai/ai-service:local`; CI chạy thêm bước xác minh HTTP trong container và bước kiểm chứng embedding. Số kiểm thử thực sự chạy phải lớn hơn 0.
+Có thể dùng `make install | lint | test | contract | run | baseline | docker-build`. Đo provider `ml`: `python scripts/benchmark_ml.py --model-dir <thư mục artifact>` (số đo trên máy phát triển chỉ tham khảo; số nghiệm thu đo trên máy đích theo TL05). `make docker-build` tạo image `ghcr.io/supportflow-ai/ai-service:local`; CI chạy thêm bước xác minh HTTP trong container và bước kiểm chứng embedding. Số kiểm thử thực sự chạy phải lớn hơn 0.
 
 ## 3. Quy tắc kỹ thuật
 
