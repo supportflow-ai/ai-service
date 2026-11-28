@@ -63,8 +63,10 @@ Nếu kết quả test/challenge dẫn đến đổi mô hình hoặc ngưỡng,
 | `title`, `description` | Có | Văn bản phiếu; không chứa thông tin cá nhân thật |
 | `category` | Có | Một trong 11 danh mục của hợp đồng v1. Runner vẫn đọc `goldCategory` của dữ liệu smoke cũ |
 | `impact`, `urgency` | Không | `Low`/`Medium`/`High` hoặc `null` khi người gán không đủ căn cứ; mẫu `null` bị bỏ qua khi tính chỉ số của trường đó |
-| `split` | Không | Lọc bằng `--split` (ví dụ `train`, `dev`, `gold`) |
-| `scenarioId`, `author`, `variant`, `source`, `notes` | Không | Dùng khi chia tập theo nhóm và phân tích lỗi; runner không đọc |
+| `split` | Có khi dùng trainer | Trainer nhận `train`, `validation`, `calibration`, `test`, `challenge` (TL04 §6–8). Runner lọc theo giá trị trong file, ví dụ `--split gold` |
+| `split_group_id` | Có khi dùng trainer | Nhóm kịch bản, biến thể và ca gần trùng. Mỗi nhóm thuộc đúng một split |
+| `source` | Không | `synthetic` và `public_translated` chỉ được ở `train`. Trainer kiểm điều này |
+| `scenarioId`, `author`, `variant`, `notes` | Không | Dùng khi chia tập theo nhóm và phân tích lỗi; runner không đọc |
 
 Runner từ chối nhãn ngoài taxonomy, `id` trùng và dòng thiếu `category`.
 
@@ -76,6 +78,26 @@ và dừng khi lệch:
 ```json
 {"version": "v1", "files": {"gold.jsonl": {"sha256": "<hex>", "samples": 330}}}
 ```
+
+### Manifest cho trainer E1
+
+`training/classifier/train.py` đọc cùng `MANIFEST.json` và cần thêm các trường quản trị. Mọi trường
+dưới đây là chuỗi không rỗng; `version` và `guidelineVersion` tối đa 128 ký tự:
+
+| Trường | Nội dung |
+| --- | --- |
+| `version` | Phiên bản tập dữ liệu |
+| `guidelineVersion` | Phiên bản guideline và taxonomy |
+| `source` | Nguồn và revision |
+| `licenseOrApproval` | Giấy phép hoặc căn cứ phê duyệt |
+| `owner` | Người chịu trách nhiệm |
+| `access` | Người được truy cập |
+| `retention` | Thời hạn giữ và cách xóa |
+| `deidentification` | Bước khử định danh đã làm |
+| `approvalAI06` | Tham chiếu phê duyệt AI-06. Chỉ bắt buộc khi huấn luyện `candidate` |
+
+`files` có cùng cấu trúc với runner. Trainer cũng từ chối `.jsonl` không được liệt kê. Artifact ghi
+`dataset.sha256` là SHA-256 của chính `MANIFEST.json`. Chi tiết xem [training/README.md](../training/README.md).
 
 ## Chạy đánh giá
 
