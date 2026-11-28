@@ -10,7 +10,7 @@ Tại mốc 21/11, Backend `dev@3640c33` chưa có hợp đồng nguồn, migrat
 
 ## Hiện trạng
 
-AI Service `main@207d26d` có hai API nội bộ qua Bearer dịch vụ. `POST /v1/ticket-classifications` dùng OpenAPI phân loại v1. `POST /v1/knowledge-indexes:prepare` dùng hợp đồng Knowledge riêng. `rule` là provider luật hiện có. `noop` là mặc định và trả `503` ở readiness phân loại. `local-e5` thuộc cấu hình embedding, chạy E5 cục bộ trên CPU trong image stage `embeddings`.
+AI Service `main@207d26d` có hai API nội bộ qua Bearer dịch vụ. `POST /v1/ticket-classifications` dùng OpenAPI phân loại v1. `POST /v1/knowledge-indexes:prepare` dùng hợp đồng Knowledge riêng. `rule` là provider luật hiện có. `noop` là mặc định và trả `503` ở readiness phân loại. `local-e5` thuộc cấu hình embedding, chạy E5 cục bộ trên CPU trong image stage `embeddings`. `ml` là provider học máy cục bộ đã đăng ký: nạp artifact có SHA, chỉ sẵn sàng khi artifact hợp lệ. Chưa có artifact ứng viên nào được nghiệm thu.
 
 Docker cài runtime theo phiên bản ghim trong `requirements-runtime.lock`. Dependency kiểm
 thử nằm trong `pyproject.toml`. Production yêu cầu token dịch vụ riêng. Schema v1 kiểm tra
@@ -46,7 +46,8 @@ Application use cases
   v
 Ports <---- Adapters
   |          |-- NoOp
-  |          `-- Rule baseline
+  |          |-- Rule baseline
+  |          `-- ML (artifact cục bộ)
   v
 Domain
 ```
@@ -65,7 +66,7 @@ Xem `docs/architecture.md`.
 | Không có gợi ý | Bỏ trường thiếu tín hiệu. Trả `suggestions: []` khi không có tín hiệu ở cả ba trường |
 | Tín hiệu giải thích | Chưa có |
 | Che dữ liệu cá nhân (PII) cho dữ liệu huấn luyện | Chưa có |
-| Model phân loại học máy | Chưa chọn (dùng rule baseline) |
+| Model phân loại học máy (`ml`) | Provider đã đăng ký, chưa có artifact ứng viên được chọn hoặc nghiệm thu. Chất lượng CHƯA ĐO. Cấu hình mặc định vẫn là `noop` |
 | Embedding CPU E5 và chuẩn bị chỉ mục Knowledge | Có (`POST /v1/knowledge-indexes:prepare`, `GET /health/embedding`); backend chưa tiêu thụ |
 | Tìm kiếm ngữ nghĩa, truy vấn embedding | Chưa có |
 | RAG | Chưa đưa vào MVP |
@@ -140,6 +141,17 @@ Authorization: Bearer <SUPPORTFLOW_AI_SERVICE_TOKEN>
 
 Backend tính `inputHash` từ tiêu đề và mô tả. Nếu đổi nội dung, dùng hash do Backend tính lại. Phản hồi trả lại `requestId`, `ticketId`, `ticketRevision` và `inputHash`. `suggestions` chứa tối đa một phần tử `field/value/score` cho mỗi trường. Gợi ý từ `rule` dùng `score: null`. Nếu thiếu tín hiệu ở mọi trường, phản hồi có mảng gợi ý rỗng. [Ranh giới hợp đồng và bảng readiness](docs/architecture.md#contract-boundary)
 
+### Cấu hình provider phân loại
+
+| Biến môi trường | Mặc định | Ghi chú |
+|---|---|---|
+| `SUPPORTFLOW_AI_CLASSIFIER_PROVIDER` | `noop` | `noop`, `rule` hoặc `ml` |
+| `SUPPORTFLOW_AI_CLASSIFIER_MODEL_DIR` | trống | Bắt buộc khi provider là `ml`. Thư mục có `manifest.json` và `model.joblib` |
+| `SUPPORTFLOW_AI_ALLOW_DEV_STUB` | `false` | Cho nạp artifact `dev-stub`, không có điểm. Chỉ `development` và `test` |
+| `SUPPORTFLOW_AI_CLASSIFIER_MAX_CONCURRENCY` | `2` | Số suy luận song song, từ 1 đến 16 |
+| `SUPPORTFLOW_AI_CLASSIFIER_MAX_QUEUE` | `8` | Số request chờ, từ 0 đến 256. Quá giới hạn trả 503 `classifier_busy` |
+| `SUPPORTFLOW_AI_CLASSIFIER_QUEUE_TIMEOUT_S` | `3.0` | Thời gian chờ tối đa trong hàng, trong khoảng (0, 4] giây |
+
 ## Kiểm thử
 
 ```bash
@@ -158,6 +170,8 @@ python -m compileall -q src evaluation scripts
 tên image với quy trình phát hành của infra và gắn tag `sha-<commit>`. Bước
 **Xác minh HTTP trong container** chạy image trên Linux, gọi qua `127.0.0.1:8000` từ
 trong container và ghi kết quả từng ca cùng SHA và image ID trong log.
+
+Stage `ml` dựng bằng `docker build --target ml -t ghcr.io/supportflow-ai/ai-service:ml-local .`. Stage này cài `requirements-ml.txt`, copy thư mục `ML_ARTIFACT_DIR` (mặc định `ml-artifact`) từ ngữ cảnh build vào `/opt/ml-model`, rồi kiểm SHA-256 từng file lúc build. Artifact hiện chưa được tải từ nơi lưu có ghim hash; việc đó còn mở.
 
 | Ca kiểm tra | Kỳ vọng |
 |---|---|
